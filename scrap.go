@@ -31,7 +31,6 @@ func (p Product) Json() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-
 func fetchURL(url, ean string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -50,7 +49,6 @@ func fetchURL(url, ean string) ([]byte, error) {
 	}
 }
 
-
 // Fetcher query something (URL, database, ...) with EAN, and return the Product stored or scrapped
 type Fetcher interface {
 	Fetch(ean string) (*Product, error)
@@ -58,7 +56,6 @@ type Fetcher interface {
 
 // URL that can be fetched by fetchers, it must be a format string, the %s will be replaced by the EAN
 type FetchableURL string
-
 
 // Create a new FetchableURL, checking that it contains the correct format to place the EAN in the URL
 func NewFetchableURL(url string) (FetchableURL, error) {
@@ -83,9 +80,9 @@ type openFoodFactsURL struct {
 
 // Fetcher for upcitemdb.com
 var UpcItemDbFetcher upcItemDbURL
+
 // Fetcher for openfoodfacts.org (using json api)
 var OpenFoodFactsFetcher openFoodFactsURL
-
 
 // Fetchers is a list of default fetchers already implemented.
 // Currently supported websited:
@@ -215,7 +212,6 @@ func (f openFoodFactsURL) Fetch(ean string) (*Product, error) {
 	return &Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL}, nil
 }
 
-
 // Scrap a Product data bases on its EAN with default Fetchers
 // All Default Fetchers are executed in goroutines
 // Return the Product if it is found on one site (the fastest).
@@ -256,5 +252,11 @@ func Scrap(ean string) (*Product, error) {
 			return pe.p, nil
 		}
 	}
-	return nil, fmt.Errorf("no product found because of the following errors: %v", len(errors))
+
+	errStr := make([]string, 1, len(errors)+1)
+	errStr[0] = ""
+	for _, err := range errors {
+		errStr = append(errStr, err.Error())
+	}
+	return nil, fmt.Errorf("no product found because of the following errors:%v", strings.Join(errStr, "\n - "))
 }
