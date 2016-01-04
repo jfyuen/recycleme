@@ -1,0 +1,16 @@
+{
+  "Bins": [
+    {
+      "id": 0,
+      "Name": "Green Bin"
+    },
+    {
+      "id": 1,
+      "Name": "Yellow Bin"
+    },
+    {
+      "id": 2,
+      "Name": "White Bin"
+    }
+  ]
+}

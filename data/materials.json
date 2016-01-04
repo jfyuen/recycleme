@@ -1,0 +1,49 @@
+{
+  "Materials": [
+    {
+      "id": 0,
+      "Name": "Cardboard box",
+      "binIds": [1]
+    },
+    {
+      "id": 1,
+      "Name": "Plastic foil",
+      "binIds": [0]
+    },
+    {
+      "id": 2,
+      "Name": "Plastic bottle",
+      "binIds": [1]
+    },
+    {
+      "id": 3,
+      "Name": "Glass bottle",
+      "binIds": [2]
+    },
+    {
+      "id": 4,
+      "Name": "Food",
+      "binIds": [0]
+    },
+    {
+      "id": 5,
+      "Name": "Plastic bottle cap",
+      "binIds": [1]
+    },
+    {
+      "id": 6,
+      "Name": "Metal bottle cap",
+      "binIds": [1]
+    },
+    {
+      "id": 7,
+      "Name": "Kleenex",
+      "binIds": [0]
+    },
+    {
+      "id": 8,
+      "Name": "Plastic box",
+      "binIds": [0]
+    }
+  ]
+}
