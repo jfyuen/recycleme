@@ -104,11 +104,14 @@ var packagesJson = `{
   ]
 }`
 
-func TestLoadJsonFiles(t *testing.T) {
+func init() {
 	logger := log.New(ioutil.Discard, "", 0)
 	LoadBinsJson(strings.NewReader(binsJson), logger)
 	LoadMaterialsJson(strings.NewReader(materialsJson), logger)
 	LoadPackagesJson(strings.NewReader(packagesJson), logger)
+}
+
+func TestPackage(t *testing.T) {
 	r := Package{EAN: "7613034383808", Materials: []Material{
 		Material{id: 0, Name: "Cardboard box"},
 		Material{id: 1, Name: "Plastic foil"},
@@ -123,6 +126,32 @@ func TestLoadJsonFiles(t *testing.T) {
 		pkgMaterial := pkg.Materials[i]
 		if m.id != pkgMaterial.id || m.Name != pkgMaterial.Name {
 			t.Errorf("Material differ for EAN %v: %v vs %v", r.EAN, m, pkgMaterial)
+		}
+	}
+}
+
+func TestProductPackage(t *testing.T) {
+	product, err := Scrap("7613034383808")
+	if err != nil {
+		t.Error(err)
+	}
+	pp := NewProductPackage(product)
+	materials := []Material{
+		Material{id: 0, Name: "Cardboard box"},
+		Material{id: 1, Name: "Plastic foil"},
+		Material{id: 4, Name: "Food"}}
+	if pp.Name != "Four à Pierre Royale" || pp.EAN != "7613034383808" ||
+	pp.URL != "http://fr.openfoodfacts.org/api/v0/produit/7613034383808.json" ||
+	pp.ImageURL != "http://static.openfoodfacts.org/images/products/761/303/438/3808/front.8.400.jpg" {
+		t.Errorf("Some attributes are invalid for: %v", pp)
+	}
+	if len(pp.materials) != len(materials) {
+		t.Errorf("Packages for %v differ", pp.EAN)
+	}
+	for i, m := range materials {
+		pkgMaterial := pp.materials[i]
+		if m.id != pkgMaterial.id || m.Name != pkgMaterial.Name {
+			t.Errorf("Material differ for EAN %v: %v vs %v", pp.EAN, m, pkgMaterial)
 		}
 	}
 }

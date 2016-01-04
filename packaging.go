@@ -52,14 +52,17 @@ func (p Package) String() string {
 // Packages indexes Package by EAN
 var Packages = make(map[string]Package)
 
-// ProductPackage Link a Product and its packages
+// ProductPackage links a Product and its packages
 type ProductPackage struct {
 	*Product
 	materials []Material
 }
 
 func NewProductPackage(p *Product) ProductPackage {
-	return ProductPackage{Product: p}
+	pp := ProductPackage{Product: p}
+	pkg := Packages[p.EAN]
+	pp.materials = pkg.Materials
+	return pp
 }
 
 func (pp ProductPackage) Bins() []Material {
