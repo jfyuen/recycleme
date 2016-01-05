@@ -29,23 +29,22 @@ func TestScrap(t *testing.T) {
 	product, err := Scrap("5029053038896")
 	if err != nil {
 		t.Error(err)
-	}
-	if product == nil {
+	} else if product == nil {
 		t.Errorf("product should not be nil")
-	}
-
-	product, err = Scrap("7613034383808")
-	if err != nil {
-		t.Error(err)
-	}
-	if product == nil {
-		t.Errorf("product should not be nil")
-	}
-	product, err = Scrap("9782123456803")
-	if product != nil {
-		t.Errorf("product should be nil: %v", product)
-	}
-	if err == nil {
-		t.Error(err)
+	} else {
+		product, err = Scrap("7613034383808")
+		if err != nil {
+			t.Error(err)
+		} else if product == nil {
+			t.Errorf("product should not be nil")
+		} else {
+			product, err = Scrap("9782123456803")
+			if product != nil {
+				t.Errorf("product should be nil: %v", product)
+			}
+			if err == nil {
+				t.Error(err)
+			}
+		}
 	}
 }

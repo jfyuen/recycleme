@@ -54,15 +54,23 @@ var Packages = make(map[string]Package)
 
 // ProductPackage links a Product and its packages
 type ProductPackage struct {
-	*Product
+	Product
 	materials []Material
 }
 
-func NewProductPackage(p *Product) ProductPackage {
+func NewProductPackage(p Product) ProductPackage {
 	pp := ProductPackage{Product: p}
 	pkg := Packages[p.EAN]
 	pp.materials = pkg.Materials
 	return pp
+}
+
+func (pp ProductPackage) ThrowAway() map[Material][]Bin {
+	bins := make(map[Material][]Bin)
+	for _, m := range pp.materials {
+		bins[m] = MaterialsToBins[m]
+	}
+	return bins
 }
 
 func (pp ProductPackage) Bins() []Material {
@@ -105,16 +113,17 @@ func LoadMaterialsJson(r io.Reader, logger *log.Logger) {
 		m := mIntf.(map[string]interface{})
 		id := m["id"].(float64)
 		material := Material{id: int(id), Name: m["Name"].(string)}
-		bins := MaterialsToBins[material]
 		binIds := m["binIds"].([]interface{})
+		bins := make([]Bin, len(binIds))
 		for i := range binIds {
 			binId := int(binIds[i].(float64))
 			bin, ok := Bins[binId]
 			if !ok {
 				logger.Fatal(fmt.Errorf("binId %v not found in Bins %v", binId, Bins))
 			}
-			bins = append(bins, bin)
+			bins[i] = bin
 		}
+		MaterialsToBins[material] = bins
 		Materials[material.id] = material
 	}
 }
