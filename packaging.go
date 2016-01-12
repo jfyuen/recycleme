@@ -73,8 +73,13 @@ func (pp ProductPackage) ThrowAway() map[Material][]Bin {
 	return bins
 }
 
-func (pp ProductPackage) Bins() []Material {
-	return nil
+func (pp ProductPackage) ThrowAwayJson() ([]byte, error) {
+	throwAway := pp.ThrowAway()
+	out := make(map[string][]Bin)
+	for k, v := range throwAway {
+		out[k.Name] = v
+	}
+	return json.Marshal(out)
 }
 
 func readJson(r io.Reader, logger *log.Logger) interface{} {

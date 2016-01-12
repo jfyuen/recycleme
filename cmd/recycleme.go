@@ -37,14 +37,14 @@ func main() {
 		logger.Fatalln(err)
 	}
 
+	pkg := recycleme.NewProductPackage(*product)
 	if jsonFlag {
-		jsonBytes, err := product.Json()
+		jsonBytes, err := pkg.ThrowAwayJson()
 		if err != nil {
 			logger.Fatalln(err)
 		}
 		fmt.Println(string(jsonBytes))
 	} else {
-		fmt.Println(product)
-		fmt.Println(recycleme.Packages["7613034383808"])
+		fmt.Println(pkg.ThrowAway())
 	}
 }

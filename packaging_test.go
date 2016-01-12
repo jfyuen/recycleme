@@ -184,3 +184,22 @@ func TestProductPackage(t *testing.T) {
 		}
 	}
 }
+
+func TestThrowAwayJson(t *testing.T) {
+	product, err := Scrap("7613034383808")
+	if err != nil {
+		t.Error(err)
+	} else {
+		pkg := NewProductPackage(*product)
+		expected := `{"Cardboard box":[{"Name":"Yellow Bin"}],"Food":[{"Name":"Green Bin"}],"Plastic foil":[{"Name":"Green Bin"}]}`
+		out, err := pkg.ThrowAwayJson()
+		if err != nil {
+			t.Error(err)
+		} else {
+
+			if string(out) != expected {
+				t.Errorf("ThrowAwayJson not as expected: %v %v", string(out), expected)
+			}
+		}
+	}
+}
