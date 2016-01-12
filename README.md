@@ -28,21 +28,27 @@ It features a database with product and scrapping/link to some database.
 ## Command line tool
 
 ```bash
-$ recycleme $EAN
+$ recycleme -d ${DATADIR} $EAN
 ```
+Replace `${DATADIR}` with the path to json directory.
 
 For example:
 
 ```bash
-$ recycleme 7613034383808
-Four à Pierre Royale (7613034383808) at http://fr.openfoodfacts.org/api/v0/produit/7613034383808.json
-	Image: http://static.openfoodfacts.org/images/products/761/303/438/3808/front.8.400.jpg
+$ recycleme -d ${DATADIR} 7613034383808
+map[{0 Cardboard box}:[{Yellow Bin 1}] {1 Plastic foil}:[{Green Bin 0}] {4 Food}:[{Green Bin 0}]]
 ```
+
+For json:
+```bash
+$ recycleme -d ${DATADIR} -json 7613034383808
+{"Cardboard box":[{"Name":"Yellow Bin"}],"Food":[{"Name":"Green Bin"}],"Plastic foil":[{"Name":"Green Bin"}]}
+```
+
 
 ## Roadmap/TODO
 
-- Json usage
-- Create the website
+Readme- Create the website
 - Migrate to mongodb (or another db, sql?) when the volume will be sufficient
 - Add geoloc information/data as to where to find a type of product. i.e batteries, lamps, ... if the bin is not available in the building or locally, depending on country or location.
 - Add link to legal regulations in the country
