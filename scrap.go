@@ -78,16 +78,23 @@ type openFoodFactsURL struct {
 	FetchableURL
 }
 
+type isbnSearchUrl struct {
+	FetchableURL
+}
+
 // Fetcher for upcitemdb.com
 var UpcItemDbFetcher upcItemDbURL
 
 // Fetcher for openfoodfacts.org (using json api)
 var OpenFoodFactsFetcher openFoodFactsURL
 
+var IsbnSearchFetcher isbnSearchUrl
+
 // Fetchers is a list of default fetchers already implemented.
 // Currently supported websited:
 // - upcitemdb
 // - openfoodfacts
+// - isbnsearch
 var fetchers []Fetcher
 
 func init() {
@@ -102,7 +109,13 @@ func init() {
 		log.Fatal(err)
 	}
 	OpenFoodFactsFetcher = openFoodFactsURL{fetchable}
-	fetchers = []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher}
+
+	fetchable, err = NewFetchableURL("http://www.isbnsearch.org/isbn/%s")
+	if err != nil {
+		log.Fatal(err)
+	}
+	IsbnSearchFetcher = isbnSearchUrl{fetchable}
+	fetchers = []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher}
 }
 
 func (f upcItemDbURL) Fetch(ean string) (*Product, error) {
@@ -210,6 +223,70 @@ func (f openFoodFactsURL) Fetch(ean string) (*Product, error) {
 	}
 
 	return &Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL}, nil
+}
+
+func (f isbnSearchUrl) Fetch(ean string) (*Product, error) {
+	url := f.fullURL(ean)
+	body, err := fetchURL(url, ean)
+	if err != nil {
+		return nil, err
+	}
+	p := f.parseBody(body)
+	if p == nil {
+		return nil, fmt.Errorf("Cound not extract data from html page at %v for Product %v", url, ean)
+	}
+	p.EAN = ean
+	p.URL = url
+	return p, nil
+
+}
+
+func (f isbnSearchUrl) parseBody(b []byte) *Product {
+	doc, err := html.Parse(bytes.NewReader(b))
+	if err != nil {
+		log.Fatal(err)
+	}
+	p := Product{}
+	var fn func(*html.Node)
+	fn = func(n *html.Node) {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			// Looking for <div class="bookinfo"><h2>$PRODUCT_NAME</h2></div>
+			if c.Type == html.ElementNode {
+				switch c.Data {
+				case "div":
+					if p.Name != "" {
+						return
+					}
+					if len(c.Attr) == 1 {
+						classAttr := c.Attr[0]
+						if classAttr.Val == "bookinfo" {
+							txt := c.FirstChild.NextSibling.FirstChild
+							if txt.Type == html.TextNode {
+								p.Name = txt.Data
+								return
+							}
+						}
+					}
+				case "img":
+					if p.ImageURL != "" {
+						return
+					}
+					for _, attr := range c.Attr {
+						if attr.Key == "src" {
+							p.ImageURL = attr.Val
+							return
+						}
+					}
+				}
+				fn(c)
+			}
+		}
+	}
+	fn(doc)
+	if p.Name == "" {
+		return nil
+	}
+	return &p
 }
 
 // Scrap a Product data bases on its EAN with default Fetchers

@@ -23,6 +23,15 @@ func TestDefaultFetchers(t *testing.T) {
 		p.ImageURL != "http://static.openfoodfacts.org/images/products/761/303/438/3808/front.8.400.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
+
+	p, err = IsbnSearchFetcher.Fetch("9782501104265")
+	if err != nil {
+		t.Error(err)
+	} else if p.Name != "le rugby c'est pas sorcier" || p.EAN != "9782501104265" ||
+		p.URL != "http://www.isbnsearch.org/isbn/9782501104265" ||
+		p.ImageURL != "http://ecx.images-amazon.com/images/I/51V4iimUfML._SL194_.jpg" {
+		t.Errorf("Some attributes are invalid for: %v", p)
+	}
 }
 
 func TestScrap(t *testing.T) {
