@@ -43,8 +43,8 @@ func main() {
 		if err != nil {
 			logger.Fatalln(err)
 		}
-		fmt.Println(string(jsonBytes))
+		logger.Println(string(jsonBytes))
 	} else {
-		fmt.Println(pkg.ThrowAway())
+		logger.Println(pkg.ThrowAway())
 	}
 }
