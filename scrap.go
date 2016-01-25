@@ -31,7 +31,7 @@ func (p Product) Json() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-func fetchURL(url, ean string) ([]byte, error) {
+func fetchURL(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return []byte{}, err
@@ -43,15 +43,15 @@ func fetchURL(url, ean string) ([]byte, error) {
 		body, err := ioutil.ReadAll(resp.Body)
 		return body, err
 	case 404:
-		return nil, fmt.Errorf("product %v not found at %v", ean, url)
+		return nil, errNotFound
 	default:
-		return nil, fmt.Errorf("error while processing product %v at while processing %v, received code %v", ean, url, resp.StatusCode)
+		return nil, fmt.Errorf("error while processing product %v, received code %v", url, resp.StatusCode)
 	}
 }
 
 // Fetcher query something (URL, database, ...) with EAN, and return the Product stored or scrapped
 type Fetcher interface {
-	Fetch(ean string) (*Product, error)
+	Fetch(ean string) (Product, *ProductError)
 }
 
 // URL that can be fetched by fetchers, it must be a format string, the %s will be replaced by the EAN
@@ -118,15 +118,15 @@ func init() {
 	fetchers = []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher}
 }
 
-func (f upcItemDbURL) Fetch(ean string) (*Product, error) {
+func (f upcItemDbURL) Fetch(ean string) (Product, *ProductError) {
 	url := f.fullURL(ean)
-	body, err := fetchURL(url, ean)
+	body, err := fetchURL(url)
 	if err != nil {
-		return nil, err
+		return Product{}, NewProductError(ean, url, err)
 	}
-	p := f.parseBody(body)
-	if p == nil {
-		return nil, fmt.Errorf("Cound not extract data from html page at %v for Product %v", url, ean)
+	p, err := f.parseBody(body)
+	if err != nil {
+		return p, NewProductError(ean, url, err)
 	}
 	p.EAN = ean
 	p.URL = url
@@ -134,12 +134,12 @@ func (f upcItemDbURL) Fetch(ean string) (*Product, error) {
 
 }
 
-func (f upcItemDbURL) parseBody(b []byte) *Product {
+func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
-	if err != nil {
-		log.Fatal(err)
-	}
 	p := Product{}
+	if err != nil {
+		return p, err
+	}
 	var fn func(*html.Node)
 	fn = func(n *html.Node) {
 		//		printText = printText || (n.Type == html.ElementNode && n.Data == "b")
@@ -173,43 +173,43 @@ func (f upcItemDbURL) parseBody(b []byte) *Product {
 	}
 	fn(doc)
 	if p.Name == "" {
-		return nil
+		return p, errNotFound
 	}
-	return &p
+	return p, nil
 }
 
-func (f openFoodFactsURL) Fetch(ean string) (*Product, error) {
+func (f openFoodFactsURL) Fetch(ean string) (Product, *ProductError) {
 	url := f.fullURL(ean)
-
-	body, err := fetchURL(url, ean)
+	p := Product{}
+	body, err := fetchURL(url)
 	if err != nil {
-		return nil, err
+		return Product{}, NewProductError(ean, url, err)
 	}
 	var v interface{}
 	err = json.Unmarshal(body, &v)
 	if err != nil {
-		return nil, err
+		return p, NewProductError(ean, url, err)
 	}
 
 	m := v.(map[string]interface{})
 	if status := m["status"].(float64); status != 1. { // 1 == product found
-		return nil, fmt.Errorf("product %v not found at %v", ean, url)
+		return p, NewProductError(ean, url, errNotFound)
 	}
 	productIntf, ok := m["product"]
 	if !ok {
-		return nil, fmt.Errorf("no product field found in json from %v", url)
+		return p, NewProductError(ean, url, fmt.Errorf("no product field found in json"))
 	}
 	product, ok := productIntf.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("no product map found in json from %v", url)
+		return p, NewProductError(ean, url, fmt.Errorf("no product map found in json"))
 	}
 	nameIntf, ok := product["product_name"]
 	if !ok {
-		return nil, fmt.Errorf("no product_name field found in json from %v", url)
+		return p, NewProductError(ean, url, fmt.Errorf("no product_name field found in json"))
 	}
 	name, ok := nameIntf.(string)
 	if !ok {
-		return nil, fmt.Errorf("product_name from %v is not a string", url)
+		return p, NewProductError(ean, url, fmt.Errorf("product_name is not a string"))
 	}
 	imageURLIntf, ok := product["image_front_url"]
 	var imageURL string
@@ -218,22 +218,22 @@ func (f openFoodFactsURL) Fetch(ean string) (*Product, error) {
 	} else {
 		imageURL, ok = imageURLIntf.(string)
 		if !ok {
-			return nil, fmt.Errorf("image_front_url from %v is not a string", url)
+			return p, NewProductError(ean, url, fmt.Errorf("image_front_url is not a string"))
 		}
 	}
 
-	return &Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL}, nil
+	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL}, nil
 }
 
-func (f isbnSearchUrl) Fetch(ean string) (*Product, error) {
+func (f isbnSearchUrl) Fetch(ean string) (Product, *ProductError) {
 	url := f.fullURL(ean)
-	body, err := fetchURL(url, ean)
+	body, err := fetchURL(url)
 	if err != nil {
-		return nil, err
+		return Product{}, NewProductError(ean, url, err)
 	}
-	p := f.parseBody(body)
-	if p == nil {
-		return nil, fmt.Errorf("Cound not extract data from html page at %v for Product %v", url, ean)
+	p, err := f.parseBody(body)
+	if err != nil {
+		return p, NewProductError(ean, url, fmt.Errorf("could not extract data from html page"))
 	}
 	p.EAN = ean
 	p.URL = url
@@ -241,12 +241,12 @@ func (f isbnSearchUrl) Fetch(ean string) (*Product, error) {
 
 }
 
-func (f isbnSearchUrl) parseBody(b []byte) *Product {
+func (f isbnSearchUrl) parseBody(b []byte) (Product, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
-	if err != nil {
-		log.Fatal(err)
-	}
 	p := Product{}
+	if err != nil {
+		return p, err
+	}
 	var fn func(*html.Node)
 	fn = func(n *html.Node) {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -284,21 +284,21 @@ func (f isbnSearchUrl) parseBody(b []byte) *Product {
 	}
 	fn(doc)
 	if p.Name == "" {
-		return nil
+		return p, errNotFound
 	}
-	return &p
+	return p, nil
 }
 
 // Scrap a Product data bases on its EAN with default Fetchers
 // All Default Fetchers are executed in goroutines
 // Return the Product if it is found on one site (the fastest).
-func Scrap(ean string) (*Product, error) {
+func Scrap(ean string) (Product, error) {
 	if !eancheck.Valid(ean) {
-		return &Product{}, fmt.Errorf("invalid EAN %v", ean)
+		return Product{}, fmt.Errorf("invalid EAN %v", ean)
 	}
 	type prodErr struct {
-		p   *Product
-		err error
+		p   Product
+		err *ProductError
 	}
 
 	c := make(chan prodErr)
@@ -325,7 +325,7 @@ func Scrap(ean string) (*Product, error) {
 			if i == len(fetchers) {
 				break
 			}
-		} else if pe.p != nil {
+		} else {
 			return pe.p, nil
 		}
 	}
@@ -335,5 +335,5 @@ func Scrap(ean string) (*Product, error) {
 	for _, err := range errors {
 		errStr = append(errStr, err.Error())
 	}
-	return nil, fmt.Errorf("no product found because of the following errors:%v", strings.Join(errStr, "\n - "))
+	return Product{}, fmt.Errorf("no product found because of the following errors:%v", strings.Join(errStr, "\n - "))
 }

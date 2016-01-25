@@ -35,22 +35,15 @@ func TestDefaultFetchers(t *testing.T) {
 }
 
 func TestScrap(t *testing.T) {
-	product, err := Scrap("5029053038896")
+	_, err := Scrap("5029053038896")
 	if err != nil {
 		t.Error(err)
-	} else if product == nil {
-		t.Errorf("product should not be nil")
 	} else {
-		product, err = Scrap("7613034383808")
+		_, err = Scrap("7613034383808")
 		if err != nil {
 			t.Error(err)
-		} else if product == nil {
-			t.Errorf("product should not be nil")
 		} else {
-			product, err = Scrap("9782123456803")
-			if product != nil {
-				t.Errorf("product should be nil: %v", product)
-			}
+			_, err = Scrap("9782123456803")
 			if err == nil {
 				t.Error(err)
 			}
