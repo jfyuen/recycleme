@@ -51,7 +51,7 @@ func fetchURL(url string) ([]byte, error) {
 
 // Fetcher query something (URL, database, ...) with EAN, and return the Product stored or scrapped
 type Fetcher interface {
-	Fetch(ean string) (Product, *ProductError)
+	Fetch(ean string) (Product, error)
 }
 
 // URL that can be fetched by fetchers, it must be a format string, the %s will be replaced by the EAN
@@ -118,7 +118,7 @@ func init() {
 	fetchers = []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher}
 }
 
-func (f upcItemDbURL) Fetch(ean string) (Product, *ProductError) {
+func (f upcItemDbURL) Fetch(ean string) (Product, error) {
 	url := f.fullURL(ean)
 	body, err := fetchURL(url)
 	if err != nil {
@@ -178,7 +178,7 @@ func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 	return p, nil
 }
 
-func (f openFoodFactsURL) Fetch(ean string) (Product, *ProductError) {
+func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 	url := f.fullURL(ean)
 	p := Product{}
 	body, err := fetchURL(url)
@@ -225,7 +225,7 @@ func (f openFoodFactsURL) Fetch(ean string) (Product, *ProductError) {
 	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL}, nil
 }
 
-func (f isbnSearchUrl) Fetch(ean string) (Product, *ProductError) {
+func (f isbnSearchUrl) Fetch(ean string) (Product, error) {
 	url := f.fullURL(ean)
 	body, err := fetchURL(url)
 	if err != nil {
@@ -298,7 +298,7 @@ func Scrap(ean string) (Product, error) {
 	}
 	type prodErr struct {
 		p   Product
-		err *ProductError
+		err error
 	}
 
 	c := make(chan prodErr)
