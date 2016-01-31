@@ -154,18 +154,23 @@ func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 							txt := c.FirstChild.NextSibling.FirstChild
 							if txt.Type == html.TextNode {
 								p.Name = txt.Data
-								return
 							}
 						}
 					}
 				case "img":
+					isProduct := false
 					for _, attr := range c.Attr {
-						if attr.Key == "src" {
+						if attr.Key == "class" && attr.Val == "product" {
+							isProduct = true
+						}
+						if attr.Key == "src" && isProduct {
 							p.ImageURL = attr.Val
-							return
 						}
 					}
 				default:
+					if p.ImageURL != "" && p.Name != "" {
+						return
+					}
 					fn(c)
 				}
 			}
