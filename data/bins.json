@@ -2,15 +2,15 @@
   "Bins": [
     {
       "id": 0,
-      "Name": "Green Bin"
+      "Name": "Bac à couvercle vert"
     },
     {
       "id": 1,
-      "Name": "Yellow Bin"
+      "Name": "Bac à couvercle jaune"
     },
     {
       "id": 2,
-      "Name": "White Bin"
+      "Name": "Bac à couvercle blanc"
     }
   ]
 }

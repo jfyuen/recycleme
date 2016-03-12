@@ -19,8 +19,8 @@ type Bin struct {
 // Bins: id -> Bin
 var Bins = make(map[int]Bin)
 
-// MaterialsToBins: Material -> []Bin, in all countries (to be filtered later)
-var MaterialsToBins = make(map[Material][]Bin)
+// MaterialsToBins: Material -> Bin, only for Paris (France) at the moment
+var MaterialsToBins = make(map[Material]Bin)
 
 // Materials: id -> Material
 var Materials = make(map[int]Material)
@@ -65,17 +65,19 @@ func NewProductPackage(p Product) ProductPackage {
 	return pp
 }
 
-func (pp ProductPackage) ThrowAway() map[Material][]Bin {
-	bins := make(map[Material][]Bin)
+func (pp ProductPackage) ThrowAway() map[Bin][]Material {
+	bins := make(map[Bin][]Material)
 	for _, m := range pp.materials {
-		bins[m] = MaterialsToBins[m]
+		bin := MaterialsToBins[m]
+		lst := bins[bin]
+		bins[bin] = append(lst, m)
 	}
 	return bins
 }
 
 func (pp ProductPackage) ThrowAwayJson() ([]byte, error) {
 	throwAway := pp.ThrowAway()
-	out := make(map[string][]Bin)
+	out := make(map[string][]Material)
 	for k, v := range throwAway {
 		out[k.Name] = v
 	}
@@ -118,17 +120,12 @@ func LoadMaterialsJson(r io.Reader, logger *log.Logger) {
 		m := mIntf.(map[string]interface{})
 		id := m["id"].(float64)
 		material := Material{id: int(id), Name: m["Name"].(string)}
-		binIds := m["binIds"].([]interface{})
-		bins := make([]Bin, len(binIds))
-		for i := range binIds {
-			binId := int(binIds[i].(float64))
-			bin, ok := Bins[binId]
-			if !ok {
-				logger.Fatal(fmt.Errorf("binId %v not found in Bins %v", binId, Bins))
-			}
-			bins[i] = bin
+		binId := m["binId"].(float64)
+		bin, ok := Bins[int(binId)]
+		if !ok {
+			logger.Fatal(fmt.Errorf("binId %v not found in Bins %v", binId, Bins))
 		}
-		MaterialsToBins[material] = bins
+		MaterialsToBins[material] = bin
 		Materials[material.id] = material
 	}
 }

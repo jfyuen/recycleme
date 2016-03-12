@@ -4,12 +4,15 @@ import (
 	"flag"
 	"fmt"
 	"github.com/jfyuen/recycleme"
+	"html/template"
 	"log"
+	"net/http"
 	"os"
 	"path"
 )
 
 var jsonFlag bool
+var serverFlag bool
 var dirFlag string
 
 func init() {
@@ -19,12 +22,13 @@ func init() {
 		flag.PrintDefaults()
 	}
 	flag.BoolVar(&jsonFlag, "json", false, "Print json export")
+	flag.BoolVar(&serverFlag, "server", false, "Run in server mode, serving json (EAN as input is useless)")
 	flag.StringVar(&dirFlag, "d", "", "Directory where to load product and packaging data")
 }
 
 func main() {
 	flag.Parse()
-	if len(flag.Args()) != 1 || dirFlag == "" {
+	if (len(flag.Args()) != 1 && !serverFlag) || (serverFlag && len(flag.Args()) != 0) || dirFlag == "" {
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -32,19 +36,36 @@ func main() {
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	recycleme.LoadJsonFiles(dirFlag, logger)
 
-	product, err := recycleme.Scrap(flag.Arg(0))
-	if err != nil {
-		logger.Fatalln(err)
-	}
+	if serverFlag {
+		templates := template.Must(template.ParseFiles("data/index.html"))
 
-	pkg := recycleme.NewProductPackage(*product)
-	if jsonFlag {
-		jsonBytes, err := pkg.ThrowAwayJson()
+		http.HandleFunc("/bin/", recycleme.BinHandler)
+		http.HandleFunc("/bins/", recycleme.BinsHandler)
+		http.HandleFunc("/materials/", recycleme.MaterialsHandler)
+		http.HandleFunc("/throwaway/", recycleme.ThrowAwayHandler)
+		http.HandleFunc("/", recycleme.HomeHandler(templates))
+		fs := http.FileServer(http.Dir("data/static"))
+
+		http.Handle("/static/", http.StripPrefix("/static/", fs))
+		err := http.ListenAndServe(":8080", nil)
 		if err != nil {
 			logger.Fatalln(err)
 		}
-		logger.Println(string(jsonBytes))
+		logger.Println("Running in server mode")
 	} else {
-		logger.Println(pkg.ThrowAway())
+		product, err := recycleme.Scrap(flag.Arg(0))
+		if err != nil {
+			logger.Fatalln(err)
+		}
+		pkg := recycleme.NewProductPackage(product)
+		if jsonFlag {
+			jsonBytes, err := pkg.ThrowAwayJson()
+			if err != nil {
+				logger.Fatalln(err)
+			}
+			logger.Println(string(jsonBytes))
+		} else {
+			logger.Println(pkg.ThrowAway())
+		}
 	}
 }

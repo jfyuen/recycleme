@@ -11,15 +11,15 @@ var binsJson = `{
   "Bins": [
     {
       "id": 0,
-      "Name": "Green Bin"
+      "Name": "Bac à couvercle vert"
     },
     {
       "id": 1,
-      "Name": "Yellow Bin"
+      "Name": "Bac à couvercle jaune"
     },
     {
       "id": 2,
-      "Name": "White Bin"
+      "Name": "Bac à couvercle blanc"
     }
   ]
 }`
@@ -28,48 +28,48 @@ var materialsJson = `{
   "Materials": [
     {
       "id": 0,
-      "Name": "Cardboard box",
-      "binIds": [1]
+      "Name": "Boîte carton",
+      "binId": 1
     },
     {
       "id": 1,
-      "Name": "Plastic foil",
-      "binIds": [0]
+      "Name": "Film plastique",
+      "binId": 0
     },
     {
       "id": 2,
-      "Name": "Plastic bottle",
-      "binIds": [1]
+      "Name": "Bouteille plastique",
+      "binId": 1
     },
     {
       "id": 3,
-      "Name": "Glass bottle",
-      "binIds": [2]
+      "Name": "Bouteille de verre",
+      "binId": 2
     },
     {
       "id": 4,
-      "Name": "Food",
-      "binIds": [0]
+      "Name": "Nourriture",
+      "binId": 0
     },
     {
       "id": 5,
-      "Name": "Plastic bottle cap",
-      "binIds": [1]
+      "Name": "Bouchon de bouteille en plastique",
+      "binId": 1
     },
     {
       "id": 6,
-      "Name": "Metal bottle cap",
-      "binIds": [1]
+      "Name": "Bouchon de bouteille en métal",
+      "binId": 1
     },
     {
       "id": 7,
       "Name": "Kleenex",
-      "binIds": [0]
+      "binId": 0
     },
     {
       "id": 8,
-      "Name": "Plastic box",
-      "binIds": [0]
+      "Name": "Boîte plastique",
+      "binId": 0
     }
   ]
 }`
@@ -113,9 +113,9 @@ func init() {
 
 func TestPackage(t *testing.T) {
 	r := Package{EAN: "7613034383808", Materials: []Material{
-		Material{id: 0, Name: "Cardboard box"},
-		Material{id: 1, Name: "Plastic foil"},
-		Material{id: 4, Name: "Food"},
+		Material{id: 0, Name: "Boîte carton"},
+		Material{id: 1, Name: "Film plastique"},
+		Material{id: 4, Name: "Nourriture"},
 	}}
 
 	pkg := Packages["7613034383808"]
@@ -129,15 +129,11 @@ func TestPackage(t *testing.T) {
 			}
 		}
 
-		binNames := []string{"Yellow Bin", "Green Bin", "Green Bin"}
+		binNames := []string{"Bac à couvercle jaune", "Bac à couvercle vert", "Bac à couvercle vert"}
 		for i, m := range r.Materials {
-			bins := MaterialsToBins[m]
-			if len(bins) != 1 {
-				t.Errorf("material %v must belongs to 1 bin, found %v", m.Name, len(bins))
-			} else {
-				if bins[0].Name != binNames[i] {
-					t.Errorf("material %v belong to %v, not %v", m.Name, binNames[i], bins[0].Name)
-				}
+			bin := MaterialsToBins[m]
+			if bin.Name != binNames[i] {
+				t.Errorf("material %v belong to %v, not %v", m.Name, binNames[i], bin.Name)
 			}
 		}
 	}
@@ -147,9 +143,9 @@ func TestProductPackage(t *testing.T) {
 	product := Product{EAN: "7613034383808", Name: "Four à Pierre Royale", URL: "http://fr.openfoodfacts.org/api/v0/produit/7613034383808.json", ImageURL: "http://static.openfoodfacts.org/images/products/761/303/438/3808/front.8.400.jpg"}
 	pp := NewProductPackage(product)
 	materials := []Material{
-		Material{id: 0, Name: "Cardboard box"},
-		Material{id: 1, Name: "Plastic foil"},
-		Material{id: 4, Name: "Food"}}
+		Material{id: 0, Name: "Boîte carton"},
+		Material{id: 1, Name: "Film plastique"},
+		Material{id: 4, Name: "Nourriture"}}
 	if pp.Product != product {
 		t.Errorf("Some attributes are invalid for: %v; expected %v", pp, product)
 	}
@@ -164,17 +160,20 @@ func TestProductPackage(t *testing.T) {
 			}
 		}
 
-		binNames := map[string]string{"Cardboard box": "Yellow Bin", "Plastic foil": "Green Bin", "Food": "Green Bin"}
-		i := 0
-		for m, bins := range pp.ThrowAway() {
-			if len(bins) != 1 {
-				t.Errorf("material %v must belongs to 1 bin, found %v", m.Name, len(bins))
-			} else {
-				if bins[0].Name != binNames[m.Name] {
-					t.Errorf("material %v belong to %v, not %v", m.Name, binNames[m.Name], bins[0].Name)
+		binNames := map[string][]string{"Bac à couvercle jaune": []string{"Boîte carton"}, "Bac à couvercle vert": []string{"Film plastique", "Nourriture"}}
+		for bin, ms := range pp.ThrowAway() {
+			for _, m := range ms {
+				found := false
+				for _, m2 := range binNames[bin.Name] {
+					if m.Name == m2 {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("material %v not found in %v", m.Name, bin.Name)
 				}
 			}
-			i++
 		}
 	}
 }
@@ -182,13 +181,13 @@ func TestProductPackage(t *testing.T) {
 func TestThrowAwayJson(t *testing.T) {
 	product := Product{EAN: "7613034383808"}
 	pkg := NewProductPackage(product)
-	expected := `{"Cardboard box":[{"Name":"Yellow Bin"}],"Food":[{"Name":"Green Bin"}],"Plastic foil":[{"Name":"Green Bin"}]}`
+	expected := `{"Bac à couvercle jaune":[{"Name":"Boîte carton"}],"Bac à couvercle vert":[{"Name":"Film plastique"},{"Name":"Nourriture"}]}`
 	out, err := pkg.ThrowAwayJson()
 	if err != nil {
 		t.Error(err)
 	} else {
 		if string(out) != expected {
-			t.Errorf("ThrowAwayJson not as expected: %v %v", string(out), expected)
+			t.Errorf("ThrowAwayJson not as expected: %v != %v", string(out), expected)
 		}
 	}
 }
