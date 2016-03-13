@@ -26,6 +26,13 @@ Contributions are welcomed to support more websites or databases.
 The website is supported and hosted on http://www.howtorecycle.me.
 It features a database with product and scrapping/link to some database.
 
+## Run in server mode
+
+```bash
+$ recycleme -d ${DATADIR} -server
+```
+Replace `${DATADIR}` with the path to json directory (no database at the moment). It will listen on port 8080 by default.
+
 
 ## Command line tool
 
