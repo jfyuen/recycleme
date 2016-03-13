@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type Product struct {
@@ -31,8 +32,12 @@ func (p Product) Json() ([]byte, error) {
 	return json.Marshal(p)
 }
 
+var client = http.Client{
+	Timeout: time.Duration(15 * time.Second),
+}
+
 func fetchURL(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -197,7 +202,8 @@ func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 	}
 
 	m := v.(map[string]interface{})
-	if status := m["status"].(float64); status != 1. { // 1 == product found
+	if status := m["status"].(float64); status != 1. {
+		// 1 == product found
 		return p, NewProductError(ean, url, errNotFound)
 	}
 	productIntf, ok := m["product"]
