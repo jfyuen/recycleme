@@ -75,7 +75,7 @@ func (pp ProductPackage) ThrowAway() map[Bin][]Material {
 	return bins
 }
 
-func (pp ProductPackage) ThrowAwayJson() ([]byte, error) {
+func (pp ProductPackage) ThrowAwayJSON() ([]byte, error) {
 	throwAway := pp.ThrowAway()
 	out := make(map[string][]Material)
 	for k, v := range throwAway {
@@ -84,7 +84,7 @@ func (pp ProductPackage) ThrowAwayJson() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-func readJson(r io.Reader, logger *log.Logger) interface{} {
+func readJSON(r io.Reader, logger *log.Logger) interface{} {
 	var data interface{}
 	var buf bytes.Buffer
 	n, err := buf.ReadFrom(r)
@@ -102,8 +102,8 @@ func readJson(r io.Reader, logger *log.Logger) interface{} {
 	return data
 }
 
-func LoadBinsJson(r io.Reader, logger *log.Logger) {
-	jsonBins := readJson(r, logger)
+func LoadBinsJSON(r io.Reader, logger *log.Logger) {
+	jsonBins := readJSON(r, logger)
 	bins := jsonBins.(map[string]interface{})
 	for _, mIntf := range bins["Bins"].([]interface{}) {
 		m := mIntf.(map[string]interface{})
@@ -113,25 +113,25 @@ func LoadBinsJson(r io.Reader, logger *log.Logger) {
 	}
 }
 
-func LoadMaterialsJson(r io.Reader, logger *log.Logger) {
-	jsonMaterials := readJson(r, logger)
+func LoadMaterialsJSON(r io.Reader, logger *log.Logger) {
+	jsonMaterials := readJSON(r, logger)
 	materials := jsonMaterials.(map[string]interface{})
 	for _, mIntf := range materials["Materials"].([]interface{}) {
 		m := mIntf.(map[string]interface{})
 		id := m["id"].(float64)
 		material := Material{id: int(id), Name: m["Name"].(string)}
-		binId := m["binId"].(float64)
-		bin, ok := Bins[int(binId)]
+		binID := m["binId"].(float64)
+		bin, ok := Bins[int(binID)]
 		if !ok {
-			logger.Fatal(fmt.Errorf("binId %v not found in Bins %v", binId, Bins))
+			logger.Fatal(fmt.Errorf("binId %v not found in Bins %v", binID, Bins))
 		}
 		MaterialsToBins[material] = bin
 		Materials[material.id] = material
 	}
 }
 
-func LoadPackagesJson(r io.Reader, logger *log.Logger) {
-	jsonMaterials := readJson(r, logger)
+func LoadPackagesJSON(r io.Reader, logger *log.Logger) {
+	jsonMaterials := readJSON(r, logger)
 	materials := jsonMaterials.(map[string]interface{})
 	for _, mIntf := range materials["Packages"].([]interface{}) {
 		m := mIntf.(map[string]interface{})
@@ -139,10 +139,10 @@ func LoadPackagesJson(r io.Reader, logger *log.Logger) {
 		pkg := Package{id: int(id), EAN: m["EAN"].(string)}
 		materialsIds := m["materialIds"].([]interface{})
 		for i := range materialsIds {
-			materialId := int(materialsIds[i].(float64))
-			material, ok := Materials[materialId]
+			materialID := int(materialsIds[i].(float64))
+			material, ok := Materials[materialID]
 			if !ok {
-				logger.Fatal(fmt.Errorf("materialId %v not found in Materials %v", materialId, Materials))
+				logger.Fatal(fmt.Errorf("materialId %v not found in Materials %v", materialID, Materials))
 			}
 			pkg.Materials = append(pkg.Materials, material)
 		}
@@ -150,9 +150,9 @@ func LoadPackagesJson(r io.Reader, logger *log.Logger) {
 	}
 }
 
-func LoadJsonFiles(dir string, logger *log.Logger) {
+func LoadJSONFiles(dir string, logger *log.Logger) {
 	files := []string{"bins.json", "materials.json", "packages.json"}
-	funcs := []func(io.Reader, *log.Logger){LoadBinsJson, LoadMaterialsJson, LoadPackagesJson}
+	funcs := []func(io.Reader, *log.Logger){LoadBinsJSON, LoadMaterialsJSON, LoadPackagesJSON}
 	for i, filename := range files {
 		path := path.Join(dir, filename)
 		f, err := os.Open(path)

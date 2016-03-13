@@ -91,7 +91,7 @@ func ThrowAwayHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pkg := NewProductPackage(product)
-	jsonBytes, err := pkg.ThrowAwayJson()
+	jsonBytes, err := pkg.ThrowAwayJSON()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

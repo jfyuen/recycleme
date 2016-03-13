@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-var binsJson = `{
+var binsJSON = `{
   "Bins": [
     {
       "id": 0,
@@ -24,7 +24,7 @@ var binsJson = `{
   ]
 }`
 
-var materialsJson = `{
+var materialsJSON = `{
   "Materials": [
     {
       "id": 0,
@@ -74,7 +74,7 @@ var materialsJson = `{
   ]
 }`
 
-var packagesJson = `{
+var packagesJSON = `{
   "Packages": [
     {
       "id": 0,
@@ -106,9 +106,9 @@ var packagesJson = `{
 
 func init() {
 	logger := log.New(ioutil.Discard, "", 0)
-	LoadBinsJson(strings.NewReader(binsJson), logger)
-	LoadMaterialsJson(strings.NewReader(materialsJson), logger)
-	LoadPackagesJson(strings.NewReader(packagesJson), logger)
+	LoadBinsJSON(strings.NewReader(binsJSON), logger)
+	LoadMaterialsJSON(strings.NewReader(materialsJSON), logger)
+	LoadPackagesJSON(strings.NewReader(packagesJSON), logger)
 }
 
 func TestPackage(t *testing.T) {
@@ -182,7 +182,7 @@ func TestThrowAwayJson(t *testing.T) {
 	product := Product{EAN: "7613034383808"}
 	pkg := NewProductPackage(product)
 	expected := `{"Bac à couvercle jaune":[{"Name":"Boîte carton"}],"Bac à couvercle vert":[{"Name":"Film plastique"},{"Name":"Nourriture"}]}`
-	out, err := pkg.ThrowAwayJson()
+	out, err := pkg.ThrowAwayJSON()
 	if err != nil {
 		t.Error(err)
 	} else {

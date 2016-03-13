@@ -34,7 +34,7 @@ func main() {
 	}
 
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	recycleme.LoadJsonFiles(dirFlag, logger)
+	recycleme.LoadJSONFiles(dirFlag, logger)
 
 	if serverFlag {
 		templates := template.Must(template.ParseFiles("data/index.html"))
@@ -59,7 +59,7 @@ func main() {
 		}
 		pkg := recycleme.NewProductPackage(product)
 		if jsonFlag {
-			jsonBytes, err := pkg.ThrowAwayJson()
+			jsonBytes, err := pkg.ThrowAwayJSON()
 			if err != nil {
 				logger.Fatalln(err)
 			}

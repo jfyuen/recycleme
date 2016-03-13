@@ -28,7 +28,7 @@ func (p Product) String() string {
 	return s
 }
 
-func (p Product) Json() ([]byte, error) {
+func (p Product) JSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
@@ -83,7 +83,7 @@ type openFoodFactsURL struct {
 	FetchableURL
 }
 
-type isbnSearchUrl struct {
+type isbnSearchURL struct {
 	FetchableURL
 }
 
@@ -93,7 +93,7 @@ var UpcItemDbFetcher upcItemDbURL
 // Fetcher for openfoodfacts.org (using json api)
 var OpenFoodFactsFetcher openFoodFactsURL
 
-var IsbnSearchFetcher isbnSearchUrl
+var IsbnSearchFetcher isbnSearchURL
 
 // Fetchers is a list of default fetchers already implemented.
 // Currently supported websited:
@@ -119,7 +119,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	IsbnSearchFetcher = isbnSearchUrl{fetchable}
+	IsbnSearchFetcher = isbnSearchURL{fetchable}
 	fetchers = []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher}
 }
 
@@ -236,7 +236,7 @@ func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL}, nil
 }
 
-func (f isbnSearchUrl) Fetch(ean string) (Product, error) {
+func (f isbnSearchURL) Fetch(ean string) (Product, error) {
 	url := f.fullURL(ean)
 	body, err := fetchURL(url)
 	if err != nil {
@@ -252,7 +252,7 @@ func (f isbnSearchUrl) Fetch(ean string) (Product, error) {
 
 }
 
-func (f isbnSearchUrl) parseBody(b []byte) (Product, error) {
+func (f isbnSearchURL) parseBody(b []byte) (Product, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
 	p := Product{}
 	if err != nil {
@@ -330,7 +330,7 @@ func Scrap(ean string) (Product, error) {
 	errors := make([]error, 0, len(fetchers))
 	i := 0
 	for pe := range c {
-		i += 1
+		i++
 		if pe.err != nil {
 			errors = append(errors, pe.err)
 			if i == len(fetchers) {
