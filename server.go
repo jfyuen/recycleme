@@ -3,20 +3,12 @@ package recycleme
 import (
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"net/http"
 	"strconv"
 )
 
-func HomeHandler(_ *template.Template) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		t, err := template.ParseFiles("data/index.html")
-		//err := templates.ExecuteTemplate(w, "index.html", struct{}{})
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		t.Execute(w, struct{}{})
-	}
+func HomeHandler(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "data/index.html")
 }
 
 func BinHandler(w http.ResponseWriter, r *http.Request) {

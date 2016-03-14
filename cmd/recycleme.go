@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/jfyuen/recycleme"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -37,13 +36,11 @@ func main() {
 	recycleme.LoadJSONFiles(dirFlag, logger)
 
 	if serverFlag {
-		templates := template.Must(template.ParseFiles("data/index.html"))
-
 		http.HandleFunc("/bin/", recycleme.BinHandler)
 		http.HandleFunc("/bins/", recycleme.BinsHandler)
 		http.HandleFunc("/materials/", recycleme.MaterialsHandler)
 		http.HandleFunc("/throwaway/", recycleme.ThrowAwayHandler)
-		http.HandleFunc("/", recycleme.HomeHandler(templates))
+		http.HandleFunc("/", recycleme.HomeHandler)
 		fs := http.FileServer(http.Dir("data/static"))
 
 		http.Handle("/static/", http.StripPrefix("/static/", fs))
