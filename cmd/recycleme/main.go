@@ -13,6 +13,7 @@ import (
 var jsonFlag bool
 var serverFlag bool
 var dirFlag string
+var serverPort string
 
 func init() {
 	flag.Usage = func() {
@@ -23,6 +24,7 @@ func init() {
 	flag.BoolVar(&jsonFlag, "json", false, "Print json export")
 	flag.BoolVar(&serverFlag, "server", false, "Run in server mode, serving json (EAN as input is useless)")
 	flag.StringVar(&dirFlag, "d", "", "Directory where to load product and packaging data")
+	flag.StringVar(&serverPort, "p", "8080", "Port to listen to")
 }
 
 func main() {
@@ -44,7 +46,7 @@ func main() {
 		fs := http.FileServer(http.Dir("data/static"))
 
 		http.Handle("/static/", http.StripPrefix("/static/", fs))
-		err := http.ListenAndServe(":8080", nil)
+		err := http.ListenAndServe(":"+serverPort, nil)
 		if err != nil {
 			logger.Fatalln(err)
 		}
