@@ -1,0 +1,21 @@
+{
+	"ImportPath": "github.com/jfyuen/recycleme",
+	"GoVersion": "go1.6",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/nicholassm/go-ean",
+			"Rev": "79d297de418d76d8cc9b86bbd7431ef6077c4a8f"
+		},
+		{
+			"ImportPath": "golang.org/x/net/html",
+			"Rev": "d9558e5c97f85372afee28cf2b6059d7d3818919"
+		},
+		{
+			"ImportPath": "golang.org/x/net/html/atom",
+			"Rev": "d9558e5c97f85372afee28cf2b6059d7d3818919"
+		}
+	]
+}
