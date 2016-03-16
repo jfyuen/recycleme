@@ -15,6 +15,16 @@ func TestDefaultFetchers(t *testing.T) {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 
+	p, err = UpcItemDbFetcher.Fetch("4006381333634")
+	if err != nil {
+		t.Error(err)
+	} else if p.Name != "Stabilo Boss Original Highlighter Blue" ||
+		p.EAN != "4006381333634" ||
+		p.URL != "http://www.upcitemdb.com/upc/4006381333634" ||
+		p.ImageURL != "http://ecx.images-amazon.com/images/I/41SfgGjtcpL._SL160_.jpg" {
+		t.Errorf("Some attributes are invalid for: %v", p)
+	}
+
 	p, err = OpenFoodFactsFetcher.Fetch("7613034383808")
 	if err != nil {
 		t.Error(err)

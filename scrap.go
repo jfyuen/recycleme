@@ -165,10 +165,10 @@ func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 				case "img":
 					isProduct := false
 					for _, attr := range c.Attr {
-						if attr.Key == "class" && attr.Val == "product" {
+						if attr.Key == "class" && strings.Contains(attr.Val, "product") {
 							isProduct = true
 						}
-						if attr.Key == "src" && isProduct {
+						if attr.Key == "src" && isProduct && len(p.ImageURL) == 0 {
 							p.ImageURL = attr.Val
 						}
 					}
