@@ -21,7 +21,12 @@
             position: absolute;
             bottom: 10px;
             width: 100%;
-            /* Set the fixed height of the footer here */
+        }
+
+        .form-control-inline {
+            min-width: 0;
+            width: auto;
+            display: inline;
         }
 
         .bin {
@@ -42,7 +47,7 @@
     </p>
     <div class="row">
         <form role="form" class="form-inline" id="recycle">
-            <input type="text" class="form-control" id="barcode" placeholder="Code bar" size="24" required>
+            <input type="text" class="form-control form-control-inline" id="barcode" placeholder="Code bar" size="24" required>
             <button type="submit" class="btn btn-default">Recycler</button>
             <span class="help-block" id="help"></span>
         </form>
@@ -50,8 +55,8 @@
 </section>
 
 <section class="container-fluid collapse text-center" id="product">
-<h2 id="name"></h2>
-<img src="" id="image">
+    <h2 id="name"></h2>
+    <img src="" id="image">
 </section>
 <section class="container-fluid collapse" id="no_data">
     Aucune information d'emballage trouvée
@@ -145,6 +150,8 @@
             }
             return false;
         });
+
+
 </script>
 </body>
 </html>
