@@ -44,17 +44,24 @@
         </form>
     </div>
 </section>
-<section class="container-fluid">
-    <div class="" id="placeholder"></div>
-    <div class="col-sm-4 collapse text-center" id="green_bin">
+
+<section class="container-fluid collapse text-center" id="product">
+<h2 id="name"></h2>
+<img src="" id="image">
+</section>
+<section class="container-fluid collapse" id="no_data">
+    Aucune information d'emballage trouvée
+</section>
+<section class="container-fluid collapse" id="throwaway">
+    <div class="col-sm-4 text-center" id="green_bin">
         <h2 style="color:green">Bac à couvercle vert</h2>
         <div id="green_list"></div>
     </div>
-    <div class="col-sm-4 collapse text-center" id="yellow_bin">
+    <div class="col-sm-4 text-center" id="yellow_bin">
         <h2 style="color:orange">Bac à couvercle jaune</h2>
         <div id="yellow_list"></div>
     </div>
-    <div class="col-sm-4 collapse text-center" id="white_bin">
+    <div class="col-sm-4 text-center" id="white_bin">
         <h2>Bac à couvercle blanc</h2>
         <div id="white_list"></div>
     </div>
@@ -69,25 +76,23 @@
 <script>
         "use strict";
 
-        function hideBins() {
-            $("#green_bin").hide();
-            $("#yellow_bin").hide();
-            $("#white_bin").hide();
+        function hideAll() {
+            $("#no_data").hide();
+            $("#product").hide();
+            $("#name").empty();
+            $("#image").src = "";
+            $("#throwaway").hide();
             $("#green_list").empty();
             $("#yellow_list").empty();
             $("#white_list").empty();
         }
 
-        function showBins() {
-            $("#green_bin").show();
-            $("#yellow_bin").show();
-            $("#white_bin").show();
-        }
-
         var recycle = $("#recycle")
         recycle.submit(function (evt) {
             evt.preventDefault();
-            hideBins();
+
+            hideAll();
+
             var barcode = $("#barcode");
             var barcodeVal = barcode.val();
 
@@ -100,34 +105,42 @@
 
                 $.get( url, function(data) {
                     data = $.parseJSON(data)
-                    for (var k in data) {
-                        var bin;
-                        console.log(k);
-                        switch (k) {
-                            case "Bac à couvercle vert":
-                                bin = $("#green_list");
-                                break;
-                            case "Bac à couvercle jaune":
-                                bin = $("#yellow_list");
-                                break;
-                            case "Bac à couvercle blanc":
-                                bin = $("#white_list");
-                                break;
+                    var throwAway = data.ThrowAway;
+                    var product = data.Product;
+                    $("#name").text(product.Name);
+                    $("#image").attr("src", product.ImageURL);
+                    $("#product").show();
+
+                    if (throwAway.length == 0) {
+                        $("#no_data").show();
+                    } else {
+                        for (var k in throwAway) {
+                            var bin;
+                            switch (k) {
+                                case "Bac à couvercle vert":
+                                    bin = $("#green_list");
+                                    break;
+                                case "Bac à couvercle jaune":
+                                    bin = $("#yellow_list");
+                                    break;
+                                case "Bac à couvercle blanc":
+                                    bin = $("#white_list");
+                                    break;
+                            }
+                            var materials = throwAway[k];
+                            for (var i = 0; i < materials.length; i++) {
+                                bin.append(materials[i].Name + "<br>");
+                            }
                         }
-                        var materials = data[k];
-                        for (var i = 0; i < materials.length; i++) {
-                            bin.append(materials[i].Name + "<br>");
-                        }
+                        $("#throwaway").show();
                     }
-                    showBins();
                 }).fail(function(xhr) {
                     recycle.addClass("has-error");
-                    $("#help").text(xhr.responseText);
+                    $("#help").html(xhr.responseText.replace(/\n/g, "<br>"));
                 });
             }
             return false;
         });
-
 </script>
 </body>
 </html>

@@ -81,7 +81,10 @@ func (pp ProductPackage) ThrowAwayJSON() ([]byte, error) {
 	for k, v := range throwAway {
 		out[k.Name] = v
 	}
-	return json.Marshal(out)
+	return json.Marshal(struct {
+		Product   Product
+		ThrowAway map[string][]Material
+	}{pp.Product, out})
 }
 
 func readJSON(r io.Reader, logger *log.Logger) interface{} {
