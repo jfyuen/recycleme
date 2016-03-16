@@ -178,10 +178,10 @@ func TestProductPackage(t *testing.T) {
 	}
 }
 
-func TestThrowAwayJson(t *testing.T) {
+func TestThrowAwayJSON(t *testing.T) {
 	product := Product{EAN: "7613034383808"}
 	pkg := NewProductPackage(product)
-	expected := `{"Bac à couvercle jaune":[{"Name":"Boîte carton"}],"Bac à couvercle vert":[{"Name":"Film plastique"},{"Name":"Nourriture"}]}`
+	expected := `{"Product":{"EAN":"7613034383808","Name":"","URL":"","ImageURL":""},"ThrowAway":{"Bac à couvercle jaune":[{"Name":"Boîte carton"}],"Bac à couvercle vert":[{"Name":"Film plastique"},{"Name":"Nourriture"}]}}`
 	out, err := pkg.ThrowAwayJSON()
 	if err != nil {
 		t.Error(err)
