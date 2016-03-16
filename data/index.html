@@ -13,10 +13,12 @@
             position: relative;
             min-height: 100%;
         }
+
         body {
             /* Margin bottom by footer height */
             margin-bottom: 60px;
         }
+
         .footer {
             position: absolute;
             bottom: 10px;
@@ -36,6 +38,25 @@
         #image {
             max-width: 300px;
         }
+
+        #loading {
+            opacity: 0;
+        }
+
+        .glyphicon.spinning {
+            animation: spin 1.5s infinite linear;
+            -webkit-animation: spin2 1.5s infinite linear;
+        }
+
+        @keyframes spin {
+            from { transform: scale(1) rotate(0deg); }
+            to { transform: scale(1) rotate(360deg); }
+        }
+
+        @-webkit-keyframes spin2 {
+            from { -webkit-transform: rotate(0deg); }
+            to { -webkit-transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -47,8 +68,14 @@
     </p>
     <div class="row">
         <form role="form" class="form-inline" id="recycle">
-            <input type="text" class="form-control form-control-inline" id="barcode" placeholder="Code bar" size="24" required>
-            <button type="submit" class="btn btn-default">Recycler</button>
+            <input type="text" class="form-control form-control-inline" id="barcode" placeholder="Code bar" size="24"
+                   required>
+            <button type="submit" class="btn btn-primary">
+                Recycler
+            </button>
+            <span style="width:40px">&nbsp;
+                <span class="glyphicon glyphicon-refresh spinning" id="loading"></span>
+            </span>
             <span class="help-block" id="help"></span>
         </form>
     </div>
@@ -108,6 +135,7 @@
             if (barcodeVal.length == 0) {
                 recycle.addClass("has-error");
             } else {
+                $("#loading").fadeTo("fast", 1.);
                 recycle.removeClass("has-error");
                 $("#help").text("");
                 var url = "/throwaway/" + barcodeVal;
@@ -122,6 +150,7 @@
 
                     if (throwAway.length == 0) {
                         $("#no_data").show();
+                        $("#loading").fadeTo("fast", 0.);
                     } else {
                         for (var k in throwAway) {
                             var bin;
@@ -142,14 +171,21 @@
                             }
                         }
                         $("#throwaway").show();
+                        $("#loading").fadeTo("fast", 0.);
                     }
                 }).fail(function(xhr) {
                     recycle.addClass("has-error");
                     $("#help").html(xhr.responseText.replace(/\n/g, "<br>"));
+                    $("#loading").fadeTo("fast", 0.);
                 });
             }
             return false;
         });
+
+
+
+
+
 
 
 </script>
