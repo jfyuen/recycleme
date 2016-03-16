@@ -59,22 +59,6 @@ func MaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", out)
 }
 
-func PackageHandler(w http.ResponseWriter, r *http.Request) {
-	ean := r.URL.Path[len("/package/"):]
-	product, err := Scrap(ean)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	pkg := NewProductPackage(product)
-	b, err := json.Marshal(pkg)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	fmt.Fprintf(w, "%s", b)
-}
-
 func ThrowAwayHandler(w http.ResponseWriter, r *http.Request) {
 	ean := r.URL.Path[len("/throwaway/"):]
 	product, err := Scrap(ean)
