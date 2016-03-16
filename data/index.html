@@ -112,6 +112,10 @@
 <script>
         "use strict";
 
+        function isLoading() {
+            return $("#loading").css("opacity") != 0;
+        }
+
         function hideAll() {
             $("#no_data").hide();
             $("#product").hide();
@@ -126,6 +130,10 @@
         var recycle = $("#recycle")
         recycle.submit(function (evt) {
             evt.preventDefault();
+
+            if (isLoading()) {
+                return false;
+            }
 
             hideAll();
 
