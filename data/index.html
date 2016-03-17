@@ -85,8 +85,8 @@
     <h2 id="name"></h2>
     <img src="" id="image">
 </section>
-<section class="container-fluid collapse" id="no_data">
-    Aucune information d'emballage trouvée
+<section class="container-fluid collapse text-center" id="no_data">
+    <h3>Aucune information d'emballage trouvée</h3>
 </section>
 <section class="container-fluid collapse" id="throwaway">
     <div class="col-sm-4 text-center" id="green_bin">
@@ -156,7 +156,7 @@
                     $("#image").attr("src", product.ImageURL);
                     $("#product").show();
 
-                    if (throwAway.length == 0) {
+                    if (jQuery.isEmptyObject(throwAway)) {
                         $("#no_data").show();
                         $("#loading").fadeTo("fast", 0.);
                     } else {
