@@ -4,6 +4,29 @@ import (
 	"testing"
 )
 
+func TestAmazonFetcher(t *testing.T) {
+	if AmazonFetcher.SecretKey == "" || AmazonFetcher.AccessKey == "" || AmazonFetcher.AssociateTag == "" {
+		t.Log("Missing either AccessKey, SecretKey or AssociateTag. AmazonFetcher will not be tested")
+		return
+	}
+	_, err := AmazonFetcher.Fetch("4006381333634")
+	if err != nil {
+		if err.(*ProductError).msg != errTooManyProducts.Error() {
+			t.Fatal(err)
+		}
+	}
+	p, err := AmazonFetcher.Fetch("5021991938818")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Name != "Clipper Thé Vert Biologique 20 infusettes" ||
+		p.EAN != "5021991938818" ||
+		p.URL != "webservices.amazon.fr" ||
+		p.ImageURL != "http://ecx.images-amazon.com/images/I/517qE9owUDL.jpg" {
+		t.Errorf("Some attributes are invalid for: %v", p)
+	}
+}
+
 func TestDefaultFetchers(t *testing.T) {
 	p, err := UpcItemDbFetcher.Fetch("5029053038896")
 	if err != nil {
@@ -53,7 +76,7 @@ func TestScrap(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		} else {
-			_, err = Scrap("9782123456803")
+			_, err = Scrap("7640140337517")
 			if err == nil {
 				t.Error(err)
 			}

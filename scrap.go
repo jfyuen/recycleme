@@ -2,13 +2,19 @@ package recycleme
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	eancheck "github.com/nicholassm/go-ean"
 	"golang.org/x/net/html"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -87,20 +93,44 @@ type isbnSearchURL struct {
 	FetchableURL
 }
 
+type amazonURL struct {
+	endPoint                           string
+	AccessKey, SecretKey, AssociateTag string
+}
+
 // Fetcher for upcitemdb.com
 var UpcItemDbFetcher upcItemDbURL
 
 // Fetcher for openfoodfacts.org (using json api)
 var OpenFoodFactsFetcher openFoodFactsURL
 
+// Fetcher for isbnsearch.org (using json api)
 var IsbnSearchFetcher isbnSearchURL
+
+// Fetcher for ean-search.org (using json api)
+var AmazonFetcher amazonURL
 
 // Fetchers is a list of default fetchers already implemented.
 // Currently supported websited:
 // - upcitemdb
 // - openfoodfacts
 // - isbnsearch
+// - amazon (if credentials are provided)
 var fetchers []Fetcher
+
+func initAmazonURL() bool {
+	fetcher := amazonURL{}
+	var accessOk, secretOk, associateTagOk bool
+	fetcher.AccessKey, accessOk = os.LookupEnv("RECYCLEME_ACCESS_KEY")
+	fetcher.SecretKey, secretOk = os.LookupEnv("RECYCLEME_SECRET_KEY")
+	fetcher.AssociateTag, associateTagOk = os.LookupEnv("RECYCLEME_ASSOCIATE_TAG")
+	if accessOk && secretOk && associateTagOk {
+		fetcher.endPoint = "webservices.amazon.fr"
+		AmazonFetcher = fetcher
+		return true
+	}
+	return false
+}
 
 func init() {
 	fetchable, err := NewFetchableURL("http://www.upcitemdb.com/upc/%s")
@@ -121,6 +151,11 @@ func init() {
 	}
 	IsbnSearchFetcher = isbnSearchURL{fetchable}
 	fetchers = []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher}
+	if initAmazonURL() {
+		fetchers = append(fetchers, AmazonFetcher)
+	} else {
+		log.Println("Missing either RECYCLEME_ACCESS_KEY, RECYCLEME_SECRET_KEY or RECYCLEME_ASSOCIATE_TAG in environment. AmazonFetcher will not be used")
+	}
 }
 
 func (f upcItemDbURL) Fetch(ean string) (Product, error) {
@@ -147,7 +182,7 @@ func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 	}
 	var fn func(*html.Node)
 	fn = func(n *html.Node) {
-		//		printText = printText || (n.Type == html.ElementNode && n.Data == "b")
+		// printText = printText || (n.Type == html.ElementNode && n.Data == "b")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			// Looking for <p class="detailtitle">....<b>$PRODUCT_NAME</b></p>
 			if c.Type == html.ElementNode {
@@ -249,7 +284,6 @@ func (f isbnSearchURL) Fetch(ean string) (Product, error) {
 	p.EAN = ean
 	p.URL = url
 	return p, nil
-
 }
 
 func (f isbnSearchURL) parseBody(b []byte) (Product, error) {
@@ -298,6 +332,96 @@ func (f isbnSearchURL) parseBody(b []byte) (Product, error) {
 		return p, errNotFound
 	}
 	return p, nil
+}
+
+// amazonItemSearchResponse is the base xml response, only keep needed fields (maybe more will be added later) in a "flat" struct.
+type amazonItemSearchResponse struct {
+	TotalResults uint          `xml:"Items>TotalResults"`
+	Item         []amazonItem  `xml:"Items>Item"`
+	IsValid      string        `xml:"Items>Request>IsValid"`
+	RequestID    string        `xml:"OperationRequest>RequestId"`
+	Errors       []amazonError `xml:"Items>Request>Errors>Error"`
+}
+
+type amazonError struct {
+	Code    string
+	Message string
+}
+
+func (e *amazonError) Error() string {
+	return fmt.Sprintf("error from amazon: Code: %s, Message: %s", e.Code, e.Message)
+}
+
+type amazonItem struct {
+	Title          string `xml:"ItemAttributes>Title"`
+	ASIN           string
+	SmallImageURL  string `xml:"SmallImage>URL"`
+	MediumImageURL string `xml:"MediumImage>URL"`
+	LargeImageURL  string `xml:"LargeImage>URL"`
+}
+
+func (f amazonURL) buildURL(ean string) (string, error) {
+	params := url.Values{}
+	params.Set("AWSAccessKeyId", f.AccessKey)
+	params.Set("AssociateTag", f.AssociateTag)
+	params.Set("Service", "AWSECommerceService")
+	params.Set("Operation", "ItemSearch")
+	params.Set("Timestamp", time.Now().Format(time.RFC3339))
+	params.Set("SearchIndex", "All")
+	params.Set("ResponseGroup", "Images,Small")
+	params.Set("Keywords", ean)
+	uri := "/onca/xml"
+	toSign := fmt.Sprintf("GET\n%s\n%s\n%s", f.endPoint, uri, strings.Replace(params.Encode(), "+", "%20", -1))
+
+	hasher := hmac.New(sha256.New, []byte(f.SecretKey))
+	_, err := hasher.Write([]byte(toSign))
+	if err != nil {
+		return "", err
+	}
+
+	signed := base64.StdEncoding.EncodeToString(hasher.Sum(nil))
+	params.Set("Signature", signed)
+
+	url := fmt.Sprintf("http://%s%s?%s", f.endPoint, uri, params.Encode())
+	return url, nil
+}
+
+func (f amazonURL) Fetch(ean string) (Product, error) {
+	url, err := f.buildURL(ean)
+	if err != nil {
+		return Product{}, NewProductError(ean, url, err)
+	}
+
+	body, err := fetchURL(url)
+	if err != nil {
+		return Product{}, NewProductError(ean, url, err)
+	}
+
+	var response amazonItemSearchResponse
+	err = xml.Unmarshal(body, &response)
+	if err != nil {
+		return Product{}, NewProductError(ean, url, err)
+	}
+	if response.IsValid == "False" {
+		if len(response.Errors) == 0 {
+			return Product{}, NewProductError(ean, f.endPoint, fmt.Errorf("invalid response for RequestId"+response.RequestID))
+		}
+		var errors []string
+		for _, e := range response.Errors {
+			errors = append(errors, e.Error())
+		}
+		return Product{}, NewProductError(ean, f.endPoint, fmt.Errorf(strings.Join(errors, "; ")))
+	}
+
+	if response.TotalResults == 0 {
+		return Product{}, NewProductError(ean, f.endPoint, errNotFound)
+	}
+	if response.TotalResults > 1 {
+		return Product{}, NewProductError(ean, f.endPoint, errTooManyProducts)
+	}
+
+	firstItem := response.Item[0]
+	return Product{EAN: ean, URL: f.endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL}, nil
 }
 
 // Scrap a Product data bases on its EAN with default Fetchers

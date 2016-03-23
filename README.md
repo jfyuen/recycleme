@@ -18,6 +18,14 @@ This however may change in the future.
 The following websites are currently scrapped:
 - http://openfoodfacts.org
 - http://www.upcitemdb.com
+- http://www.isbnsearch.org
+
+Moreover, http://www.amazon.fr (on french portal) is supported via their Product Advertising API, given the following credentials are set in the environment:
+- RECYCLEME_ACCESS_KEY
+- RECYCLEME_SECRET_KEY
+- RECYCLEME_ASSOCIATE_TAG
+
+The Amazon fetcher is deactivated is any variable is missing.
 
 Contributions are welcomed to support more websites or databases.
 

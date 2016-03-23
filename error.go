@@ -3,6 +3,7 @@ package recycleme
 import "fmt"
 
 var errNotFound = fmt.Errorf("product not found")
+var errTooManyProducts = fmt.Errorf("too many products found")
 
 type ProductError struct {
 	EAN, URL string
