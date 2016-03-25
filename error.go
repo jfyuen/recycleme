@@ -7,13 +7,13 @@ var errTooManyProducts = fmt.Errorf("too many products found")
 
 type ProductError struct {
 	EAN, URL string
-	msg      string
+	err      error
 }
 
 func (err ProductError) Error() string {
-	return fmt.Sprintf("%v for %v at %v", err.msg, err.EAN, err.URL)
+	return fmt.Sprintf("%v for %v at %v", err.err, err.EAN, err.URL)
 }
 
 func NewProductError(ean, url string, err error) *ProductError {
-	return &ProductError{EAN: ean, URL: url, msg: err.Error()}
+	return &ProductError{EAN: ean, URL: url, err: err}
 }

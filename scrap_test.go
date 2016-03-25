@@ -11,7 +11,7 @@ func TestAmazonFetcher(t *testing.T) {
 	}
 	_, err := AmazonFetcher.Fetch("4006381333634")
 	if err != nil {
-		if err.(*ProductError).msg != errTooManyProducts.Error() {
+		if err.(*ProductError).err != errTooManyProducts {
 			t.Fatal(err)
 		}
 	}
