@@ -5,7 +5,7 @@ import (
 )
 
 func TestAmazonFetcher(t *testing.T) {
-	amazonFetcher, err := NewAmazonURLFetcher()
+	amazonFetcher, err := newAmazonURLFetcher()
 
 	if amazonFetcher.SecretKey == "" || amazonFetcher.AccessKey == "" || amazonFetcher.AssociateTag == "" {
 		t.Log("Missing either AccessKey, SecretKey or AssociateTag. AmazonFetcher will not be tested")

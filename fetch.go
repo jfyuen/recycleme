@@ -45,20 +45,25 @@ type Fetcher interface {
 	Fetch(ean string) (Product, error)
 }
 
-// URL that can be fetched by fetchers, it must be a format string, the %s will be replaced by the EAN
-type FetchableURL string
-
-// Create a new FetchableURL, checking that it contains the correct format to place the EAN in the URL
-func NewFetchableURL(url string) (FetchableURL, error) {
-	if !strings.Contains(url, "%s") && !strings.Contains(url, "%v") {
-		return FetchableURL(""), fmt.Errorf("URL %v does not containt format string to insert EAN", url)
-	}
-
-	return FetchableURL(url), nil
+// FetchableURL is a base struct to fetch websites
+// URL that can be used by fetchers, it must be a format string, the %s or %v will be replaced by the EAN
+// WebsiteName is the corporate name given to the website to be fetched, for prettier printing
+type FetchableURL struct {
+	URL         string
+	WebsiteName string
 }
 
-func (f FetchableURL) fullURL(ean string) string {
-	return fmt.Sprintf(string(f), ean)
+// Create a new FetchableURL, checking that it contains the correct format to place the EAN in the URL
+func NewFetchableURL(url string, website string) (FetchableURL, error) {
+	if !strings.Contains(url, "%s") && !strings.Contains(url, "%v") {
+		return FetchableURL{}, fmt.Errorf("URL %v does not containt format string to insert EAN", url)
+	}
+
+	return FetchableURL{URL: url, WebsiteName: website}, nil
+}
+
+func fullURL(url, ean string) string {
+	return fmt.Sprintf(url, ean)
 }
 
 var client = http.Client{
@@ -83,36 +88,31 @@ func fetchURL(url string) ([]byte, error) {
 	}
 }
 
-type upcItemDbURL struct {
-	FetchableURL
-}
+type upcItemDbURL FetchableURL
 
 // Fetcher for upcitemdb.com
-var UpcItemDbFetcher = upcItemDbURL{"http://www.upcitemdb.com/upc/%s"}
+var UpcItemDbFetcher = upcItemDbURL{URL: "http://www.upcitemdb.com/upc/%s", WebsiteName: "UPCItemDB"}
 
-type openFoodFactsURL struct {
-	FetchableURL
-}
+type openFoodFactsURL FetchableURL
 
 // Fetcher for openfoodfacts.org (using json api)
-var OpenFoodFactsFetcher = openFoodFactsURL{"http://fr.openfoodfacts.org/api/v0/produit/%s.json"}
+var OpenFoodFactsFetcher = openFoodFactsURL{URL: "http://fr.openfoodfacts.org/api/v0/produit/%s.json", WebsiteName: "OpenFoodFacts"}
 
-type isbnSearchURL struct {
-	FetchableURL
-}
+type isbnSearchURL FetchableURL
 
 // Fetcher for isbnsearch.org (using json api)
-var IsbnSearchFetcher = isbnSearchURL{"http://www.isbnsearch.org/isbn/%s"}
+var IsbnSearchFetcher = isbnSearchURL{URL: "http://www.isbnsearch.org/isbn/%s", WebsiteName: "ISBNSearch"}
 
 type amazonURL struct {
 	endPoint                           string
+	WebsiteName                        string
 	AccessKey, SecretKey, AssociateTag string
 }
 
 // Fetcher for ean-search.org (using json api)
 var AmazonFetcher amazonURL
 
-func NewAmazonURLFetcher() (amazonURL, error) {
+func newAmazonURLFetcher() (amazonURL, error) {
 	fetcher := amazonURL{}
 	var accessOk, secretOk, associateTagOk bool
 	fetcher.AccessKey, accessOk = os.LookupEnv("RECYCLEME_ACCESS_KEY")
@@ -120,13 +120,14 @@ func NewAmazonURLFetcher() (amazonURL, error) {
 	fetcher.AssociateTag, associateTagOk = os.LookupEnv("RECYCLEME_ASSOCIATE_TAG")
 	if accessOk && secretOk && associateTagOk {
 		fetcher.endPoint = "webservices.amazon.fr"
+		fetcher.WebsiteName = "Amazon.fr"
 		return fetcher, nil
 	}
 	return fetcher, errors.New("Missing either RECYCLEME_ACCESS_KEY, RECYCLEME_SECRET_KEY or RECYCLEME_ASSOCIATE_TAG in environment. AmazonFetcher will not be used")
 }
 
 func (f upcItemDbURL) Fetch(ean string) (Product, error) {
-	url := f.fullURL(ean)
+	url := fullURL(f.URL, ean)
 	body, err := fetchURL(url)
 	if err != nil {
 		return Product{}, NewProductError(ean, url, err)
@@ -138,7 +139,7 @@ func (f upcItemDbURL) Fetch(ean string) (Product, error) {
 	p.EAN = ean
 	p.URL = url
 	p.WebsiteURL = url
-	p.WebsiteName = "UPCItemDB"
+	p.WebsiteName = f.WebsiteName
 	return p, nil
 
 }
@@ -193,7 +194,7 @@ func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 }
 
 func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
-	url := f.fullURL(ean)
+	url := fullURL(f.URL, ean)
 	p := Product{}
 	body, err := fetchURL(url)
 	if err != nil {
@@ -237,11 +238,11 @@ func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 		}
 	}
 	websiteURL := fmt.Sprintf("http://fr.openfoodfacts.org/produit/%s/", ean)
-	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL, WebsiteURL: websiteURL, WebsiteName: "OpenFoodFacts"}, nil
+	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL, WebsiteURL: websiteURL, WebsiteName: f.WebsiteName}, nil
 }
 
 func (f isbnSearchURL) Fetch(ean string) (Product, error) {
-	url := f.fullURL(ean)
+	url := fullURL(f.URL, ean)
 	body, err := fetchURL(url)
 	if err != nil {
 		return Product{}, NewProductError(ean, url, err)
@@ -253,7 +254,7 @@ func (f isbnSearchURL) Fetch(ean string) (Product, error) {
 	p.EAN = ean
 	p.URL = url
 	p.WebsiteURL = url
-	p.WebsiteName = "ISBNSearch"
+	p.WebsiteName = f.WebsiteName
 	return p, nil
 }
 
@@ -393,7 +394,7 @@ func (f amazonURL) Fetch(ean string) (Product, error) {
 	}
 
 	firstItem := response.Item[0]
-	return Product{EAN: ean, URL: f.endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL, WebsiteURL: firstItem.DetailPageURL, WebsiteName: "Amazon.fr"}, nil
+	return Product{EAN: ean, URL: f.endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL, WebsiteURL: firstItem.DetailPageURL, WebsiteName: f.WebsiteName}, nil
 }
 
 type DefaultFetcher struct {
@@ -409,7 +410,7 @@ type DefaultFetcher struct {
 // TODO: should return a warning, or info, not an error.
 func NewDefaultFetcher() (DefaultFetcher, error) {
 	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher}
-	amazonFetcher, err := NewAmazonURLFetcher()
+	amazonFetcher, err := newAmazonURLFetcher()
 	if err != nil {
 		return DefaultFetcher{fetchers: fetchers}, err
 	}
