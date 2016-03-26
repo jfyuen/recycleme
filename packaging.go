@@ -153,9 +153,18 @@ func LoadPackagesJSON(r io.Reader, logger *log.Logger) {
 	}
 }
 
+func LoadBlacklistJSON(r io.Reader, logger *log.Logger) {
+	jsonBlacklist := readJSON(r, logger)
+	blacklist := jsonBlacklist.(map[string]interface{})
+	for _, url := range blacklist["Blacklist"].([]interface{}) {
+		Blacklist.Add(url.(string))
+	}
+
+}
+
 func LoadJSONFiles(dir string, logger *log.Logger) {
-	files := []string{"bins.json", "materials.json", "packages.json"}
-	funcs := []func(io.Reader, *log.Logger){LoadBinsJSON, LoadMaterialsJSON, LoadPackagesJSON}
+	files := []string{"bins.json", "materials.json", "packages.json", "blacklist.json"}
+	funcs := []func(io.Reader, *log.Logger){LoadBinsJSON, LoadMaterialsJSON, LoadPackagesJSON, LoadBlacklistJSON}
 	for i, filename := range files {
 		path := path.Join(dir, filename)
 		f, err := os.Open(path)

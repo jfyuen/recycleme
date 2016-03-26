@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -39,6 +40,24 @@ func (p Product) String() string {
 func (p Product) JSON() ([]byte, error) {
 	return json.Marshal(p)
 }
+
+type blacklist struct {
+	blacklisted map[string]struct{}
+	sync.Mutex
+}
+
+func (b *blacklist) Add(url string) {
+	b.Lock()
+	b.blacklisted[url] = struct{}{}
+	b.Unlock()
+}
+
+func (b *blacklist) Contains(url string) bool {
+	_, ok := b.blacklisted[url]
+	return ok
+}
+
+var Blacklist blacklist = blacklist{blacklisted: make(map[string]struct{})}
 
 // Fetcher query something (URL, database, ...) with EAN, and return the Product stored or scrapped
 type Fetcher interface {
@@ -128,6 +147,9 @@ func newAmazonURLFetcher() (amazonURL, error) {
 
 func (f upcItemDbURL) Fetch(ean string) (Product, error) {
 	url := fullURL(f.URL, ean)
+	if Blacklist.Contains(url) {
+		return Product{}, NewProductError(ean, url, errBlacklisted)
+	}
 	body, err := fetchURL(url)
 	if err != nil {
 		return Product{}, NewProductError(ean, url, err)
@@ -195,6 +217,9 @@ func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 
 func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 	url := fullURL(f.URL, ean)
+	if Blacklist.Contains(url) {
+		return Product{}, NewProductError(ean, url, errBlacklisted)
+	}
 	p := Product{}
 	body, err := fetchURL(url)
 	if err != nil {
@@ -243,6 +268,9 @@ func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 
 func (f isbnSearchURL) Fetch(ean string) (Product, error) {
 	url := fullURL(f.URL, ean)
+	if Blacklist.Contains(url) {
+		return Product{}, NewProductError(ean, url, errBlacklisted)
+	}
 	body, err := fetchURL(url)
 	if err != nil {
 		return Product{}, NewProductError(ean, url, err)
@@ -364,7 +392,9 @@ func (f amazonURL) Fetch(ean string) (Product, error) {
 	if err != nil {
 		return Product{}, NewProductError(ean, url, err)
 	}
-
+	if Blacklist.Contains(url) {
+		return Product{}, NewProductError(ean, url, errBlacklisted)
+	}
 	body, err := fetchURL(url)
 	if err != nil {
 		return Product{}, NewProductError(ean, url, err)

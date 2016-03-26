@@ -1,8 +1,33 @@
 package recycleme
 
 import (
+	"io/ioutil"
+	"log"
+	"strings"
 	"testing"
 )
+
+var blacklistJSON = `{
+  "Blacklist": [
+    "http://www.upcitemdb.com/upc/3057640136573"
+  ]
+}`
+
+func TestBlacklist(t *testing.T) {
+	url := "http://www.upcitemdb.com/upc/3057640136573"
+	logger := log.New(ioutil.Discard, "", 0)
+	LoadBlacklistJSON(strings.NewReader(blacklistJSON), logger)
+	if !Blacklist.Contains(url) {
+		t.Fatalf("%v not in blacklist", url)
+	}
+	_, err := UpcItemDbFetcher.Fetch("3057640136573")
+	if err == nil {
+		t.Fatalf("%v not blacklisted", url)
+	}
+	if err.(*ProductError).err != errBlacklisted {
+		t.Fatalf("not a blacklist error: %v", err)
+	}
+}
 
 func TestAmazonFetcher(t *testing.T) {
 	amazonFetcher, err := newAmazonURLFetcher()
