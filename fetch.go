@@ -20,14 +20,15 @@ import (
 )
 
 type Product struct {
-	EAN      string // EAN number for the Product
-	Name     string // Name of the Product
-	URL      string // URL where the details of the Product were found
-	ImageURL string // URL where to find an image of the Product
+	EAN        string // EAN number for the Product
+	Name       string // Name of the Product
+	URL        string // URL where the details of the Product were found
+	ImageURL   string // URL where to find an image of the Product
+	WebsiteURL string // URL where to find the details of the Product
 }
 
 func (p Product) String() string {
-	s := fmt.Sprintf("%v (%v) at %v", p.Name, p.EAN, p.URL)
+	s := fmt.Sprintf("%v (%v) at %v (%v)", p.Name, p.EAN, p.URL, p.WebsiteURL)
 	if p.ImageURL != "" {
 		s += fmt.Sprintf("\n\tImage: %v", p.ImageURL)
 	}
@@ -135,6 +136,7 @@ func (f upcItemDbURL) Fetch(ean string) (Product, error) {
 	}
 	p.EAN = ean
 	p.URL = url
+	p.WebsiteURL = url
 	return p, nil
 
 }
@@ -232,8 +234,8 @@ func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 			return p, NewProductError(ean, url, fmt.Errorf("image_front_url is not a string"))
 		}
 	}
-
-	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL}, nil
+	websiteURL := fmt.Sprintf("http://fr.openfoodfacts.org/produit/%s/", ean)
+	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL, WebsiteURL: websiteURL}, nil
 }
 
 func (f isbnSearchURL) Fetch(ean string) (Product, error) {
@@ -248,6 +250,7 @@ func (f isbnSearchURL) Fetch(ean string) (Product, error) {
 	}
 	p.EAN = ean
 	p.URL = url
+	p.WebsiteURL = url
 	return p, nil
 }
 
@@ -320,6 +323,7 @@ func (e *amazonError) Error() string {
 type amazonItem struct {
 	Title          string `xml:"ItemAttributes>Title"`
 	ASIN           string
+	DetailPageURL  string
 	SmallImageURL  string `xml:"SmallImage>URL"`
 	MediumImageURL string `xml:"MediumImage>URL"`
 	LargeImageURL  string `xml:"LargeImage>URL"`
@@ -386,7 +390,7 @@ func (f amazonURL) Fetch(ean string) (Product, error) {
 	}
 
 	firstItem := response.Item[0]
-	return Product{EAN: ean, URL: f.endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL}, nil
+	return Product{EAN: ean, URL: f.endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL, WebsiteURL: firstItem.DetailPageURL}, nil
 }
 
 type DefaultFetcher struct {

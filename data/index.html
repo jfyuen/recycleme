@@ -84,6 +84,7 @@
 <section class="container-fluid collapse text-center" id="product">
     <h2 id="name"></h2>
     <img src="" id="image">
+    <div class="source">Source: <a href="" id="source_url" target="_blank"></a></div>
 </section>
 <section class="container-fluid collapse text-center" id="no_data">
     <h3>Aucune information d'emballage trouvée</h3>
@@ -125,6 +126,7 @@
             $("#green_list").empty();
             $("#yellow_list").empty();
             $("#white_list").empty();
+            $("#source_url").empty();
         }
 
         var recycle = $("#recycle")
@@ -154,6 +156,9 @@
                     var product = data.Product;
                     $("#name").text(product.Name);
                     $("#image").attr("src", product.ImageURL);
+                    var sourceUrl = $("#source_url");
+                    sourceUrl.attr("href", product.WebsiteURL);
+                    sourceUrl.text(product.WebsiteURL);
                     $("#product").show();
 
                     if (jQuery.isEmptyObject(throwAway)) {

@@ -24,7 +24,8 @@ func TestAmazonFetcher(t *testing.T) {
 	if p.Name != "Clipper Thé Vert Biologique 20 infusettes" ||
 		p.EAN != "5021991938818" ||
 		p.URL != "webservices.amazon.fr" ||
-		p.ImageURL != "http://ecx.images-amazon.com/images/I/517qE9owUDL.jpg" {
+		p.ImageURL != "http://ecx.images-amazon.com/images/I/517qE9owUDL.jpg" ||
+		p.WebsiteURL != "http://www.amazon.fr/Clipper-Th%C3%A9-Vert-Biologique-infusettes/dp/B011C4L3S0%3FSubscriptionId%3DAKIAIOSACIYSSJVD3IQA%26tag%3Dhowtorecme-21%26linkCode%3Dxm2%26camp%3D2025%26creative%3D165953%26creativeASIN%3DB011C4L3S0" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 }
@@ -36,7 +37,8 @@ func TestDefaultFetchers(t *testing.T) {
 	} else if p.Name != "Kleenex tissues in a Christmas House box" ||
 		p.EAN != "5029053038896" ||
 		p.URL != "http://www.upcitemdb.com/upc/5029053038896" ||
-		p.ImageURL != "http://www.staples.co.uk/content/images/product/428056_1_xnl.jpg" {
+		p.ImageURL != "http://www.staples.co.uk/content/images/product/428056_1_xnl.jpg" ||
+		p.WebsiteURL != "http://www.upcitemdb.com/upc/5029053038896" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 
@@ -46,6 +48,7 @@ func TestDefaultFetchers(t *testing.T) {
 	} else if p.Name != "Stabilo Boss Original Highlighter Blue" ||
 		p.EAN != "4006381333634" ||
 		p.URL != "http://www.upcitemdb.com/upc/4006381333634" ||
+		p.WebsiteURL != "http://www.upcitemdb.com/upc/4006381333634" ||
 		p.ImageURL != "http://ecx.images-amazon.com/images/I/41SfgGjtcpL._SL160_.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
@@ -55,6 +58,7 @@ func TestDefaultFetchers(t *testing.T) {
 		t.Error(err)
 	} else if p.Name != "Four à Pierre Royale" || p.EAN != "7613034383808" ||
 		p.URL != "http://fr.openfoodfacts.org/api/v0/produit/7613034383808.json" ||
+		p.WebsiteURL != "http://fr.openfoodfacts.org/produit/7613034383808/" ||
 		p.ImageURL != "http://static.openfoodfacts.org/images/products/761/303/438/3808/front.8.400.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
@@ -64,6 +68,7 @@ func TestDefaultFetchers(t *testing.T) {
 		t.Error(err)
 	} else if p.Name != "le rugby c'est pas sorcier" || p.EAN != "9782501104265" ||
 		p.URL != "http://www.isbnsearch.org/isbn/9782501104265" ||
+		p.WebsiteURL != "http://www.isbnsearch.org/isbn/9782501104265" ||
 		p.ImageURL != "http://ecx.images-amazon.com/images/I/51V4iimUfML._SL194_.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
