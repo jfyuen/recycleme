@@ -57,11 +57,12 @@ func (b *blacklist) Contains(url string) bool {
 	return ok
 }
 
-var Blacklist blacklist = blacklist{blacklisted: make(map[string]struct{})}
+var Blacklist = blacklist{blacklisted: make(map[string]struct{})}
 
 // Fetcher query something (URL, database, ...) with EAN, and return the Product stored or scrapped
 type Fetcher interface {
 	Fetch(ean string) (Product, error)
+	IsURLValidForEAN(url, ean string) bool
 }
 
 // FetchableURL is a base struct to fetch websites
@@ -145,6 +146,10 @@ func newAmazonURLFetcher() (amazonURL, error) {
 	return fetcher, errors.New("Missing either RECYCLEME_ACCESS_KEY, RECYCLEME_SECRET_KEY or RECYCLEME_ASSOCIATE_TAG in environment. AmazonFetcher will not be used")
 }
 
+func (f upcItemDbURL) IsURLValidForEAN(url, ean string) bool {
+	return fullURL(f.URL, ean) == url
+}
+
 func (f upcItemDbURL) Fetch(ean string) (Product, error) {
 	url := fullURL(f.URL, ean)
 	if Blacklist.Contains(url) {
@@ -215,6 +220,10 @@ func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 	return p, nil
 }
 
+func (f openFoodFactsURL) IsURLValidForEAN(url, ean string) bool {
+	return fullURL(f.URL, ean) == url
+}
+
 func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 	url := fullURL(f.URL, ean)
 	if Blacklist.Contains(url) {
@@ -264,6 +273,10 @@ func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 	}
 	websiteURL := fmt.Sprintf("http://fr.openfoodfacts.org/produit/%s/", ean)
 	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL, WebsiteURL: websiteURL, WebsiteName: f.WebsiteName}, nil
+}
+
+func (f isbnSearchURL) IsURLValidForEAN(url, ean string) bool {
+	return fullURL(f.URL, ean) == url
 }
 
 func (f isbnSearchURL) Fetch(ean string) (Product, error) {
@@ -361,6 +374,10 @@ type amazonItem struct {
 	LargeImageURL  string `xml:"LargeImage>URL"`
 }
 
+func (f amazonURL) IsURLValidForEAN(url, ean string) bool {
+	return f.endPoint == url
+}
+
 func (f amazonURL) buildURL(ean string) (string, error) {
 	params := url.Values{}
 	params.Set("AWSAccessKeyId", f.AccessKey)
@@ -389,42 +406,43 @@ func (f amazonURL) buildURL(ean string) (string, error) {
 
 func (f amazonURL) Fetch(ean string) (Product, error) {
 	url, err := f.buildURL(ean)
+	endPoint := fmt.Sprintf("%s/%s", f.endPoint, ean)
 	if err != nil {
-		return Product{}, NewProductError(ean, url, err)
+		return Product{}, NewProductError(ean, endPoint, err)
 	}
 	if Blacklist.Contains(url) {
-		return Product{}, NewProductError(ean, url, errBlacklisted)
+		return Product{}, NewProductError(ean, endPoint, errBlacklisted)
 	}
 	body, err := fetchURL(url)
 	if err != nil {
-		return Product{}, NewProductError(ean, url, err)
+		return Product{}, NewProductError(ean, endPoint, err)
 	}
 
 	var response amazonItemSearchResponse
 	err = xml.Unmarshal(body, &response)
 	if err != nil {
-		return Product{}, NewProductError(ean, url, err)
+		return Product{}, NewProductError(ean, endPoint, err)
 	}
 	if response.IsValid == "False" {
 		if len(response.Errors) == 0 {
-			return Product{}, NewProductError(ean, f.endPoint, fmt.Errorf("invalid response for RequestId"+response.RequestID))
+			return Product{}, NewProductError(ean, endPoint, fmt.Errorf("invalid response for RequestId"+response.RequestID))
 		}
 		var errors []string
 		for _, e := range response.Errors {
 			errors = append(errors, e.Error())
 		}
-		return Product{}, NewProductError(ean, f.endPoint, fmt.Errorf(strings.Join(errors, "; ")))
+		return Product{}, NewProductError(ean, endPoint, fmt.Errorf(strings.Join(errors, "; ")))
 	}
 
 	if response.TotalResults == 0 {
-		return Product{}, NewProductError(ean, f.endPoint, errNotFound)
+		return Product{}, NewProductError(ean, endPoint, errNotFound)
 	}
 	if response.TotalResults > 1 {
-		return Product{}, NewProductError(ean, f.endPoint, errTooManyProducts)
+		return Product{}, NewProductError(ean, endPoint, errTooManyProducts)
 	}
 
 	firstItem := response.Item[0]
-	return Product{EAN: ean, URL: f.endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL, WebsiteURL: firstItem.DetailPageURL, WebsiteName: f.WebsiteName}, nil
+	return Product{EAN: ean, URL: endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL, WebsiteURL: firstItem.DetailPageURL, WebsiteName: f.WebsiteName}, nil
 }
 
 type DefaultFetcher struct {
@@ -447,6 +465,15 @@ func NewDefaultFetcher() (DefaultFetcher, error) {
 	AmazonFetcher = amazonFetcher
 	fetchers = append(fetchers, amazonFetcher)
 	return DefaultFetcher{fetchers: fetchers}, nil
+}
+
+func (f DefaultFetcher) IsURLValidForEAN(url, ean string) bool {
+	for _, fetcher := range f.fetchers {
+		if fetcher.IsURLValidForEAN(url, ean) {
+			return true
+		}
+	}
+	return false
 }
 
 // Fetch a Product data bases on its EAN with default Fetchers

@@ -40,6 +40,9 @@ func main() {
 		http.HandleFunc("/bin/", recycleme.BinHandler)
 		http.HandleFunc("/bins/", recycleme.BinsHandler)
 		http.HandleFunc("/materials/", recycleme.MaterialsHandler)
+		http.HandleFunc("/blacklist/add/", func(w http.ResponseWriter, r *http.Request) {
+			recycleme.Blacklist.AddBlacklistHandler(w, r, logger, fetcher)
+		})
 		http.HandleFunc("/throwaway/", func(w http.ResponseWriter, r *http.Request) {
 			recycleme.ThrowAwayHandler(w, r, fetcher)
 		})

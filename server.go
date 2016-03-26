@@ -3,6 +3,7 @@ package recycleme
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -57,6 +58,19 @@ func MaterialsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprintf(w, "%s", out)
+}
+
+func (b *blacklist) AddBlacklistHandler(w http.ResponseWriter, r *http.Request, logger *log.Logger, f Fetcher) {
+	r.ParseForm()
+	url := r.FormValue("url")
+	ean := r.FormValue("ean")
+
+	if f.IsURLValidForEAN(url, ean) {
+		b.Add(url)
+		name := r.FormValue("name")
+		logger.Printf("Blacklisting %s. %s should be %s\n", url, ean, name)
+	}
+	fmt.Fprintf(w, "ok")
 }
 
 func ThrowAwayHandler(w http.ResponseWriter, r *http.Request, f Fetcher) {

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Comment me recycler ?</title>
     <script src="//code.jquery.com/jquery-2.2.1.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
           integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
     <style>
@@ -68,8 +69,7 @@
     </p>
     <div class="row">
         <form role="form" class="form-inline" id="recycle">
-            <input type="text" class="form-control form-control-inline" id="barcode" placeholder="Code barre" size="24"
-                   required>
+            <input type="text" class="form-control form-control-inline" id="barcode" placeholder="Code barre" size="24" required>
             <button type="submit" class="btn btn-primary">
                 Recycler
             </button>
@@ -82,9 +82,10 @@
 </section>
 
 <section class="container-fluid collapse text-center" id="product">
-    <h2 id="name"></h2>
+    <h2 class="name"></h2>
     <img src="" id="image">
     <div class="source">Source: <a href="" id="source_url" target="_blank"></a></div>
+    <button type="button" class="btn btn-info btn-default" data-toggle="modal" data-target="#blacklist_modal">Ce n'est pas le bon produit ? </button>
 </section>
 <section class="container-fluid collapse text-center" id="no_data">
     <h3>Aucune information d'emballage trouvée</h3>
@@ -104,6 +105,30 @@
     </div>
 </section>
 
+<!-- Blacklist Modal -->
+<div class="modal fade" id="blacklist_modal" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h2 class="modal-title">Signaler un mauvais produit</h2>
+            </div>
+            <div class="modal-body">
+                <p>Le code barre <b class="ean"></b> ne correspond pas à <b class="name "></b> ?</p>
+                <form role="form" class="form-inline" id="blacklist_form">
+                    <input type="text" class="form-control form-control-inline" id="blacklist_name" placeholder="Nom du bon produit" size="50" required>
+                    <button type="submit" class="btn btn-primary">
+                        Signaler
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+
 <footer class="footer">
     <div class="container text-center small">
         2016 // <a href="mailto:jfyuen@gmail.com">jfyuen</a> //
@@ -112,6 +137,7 @@
 </footer>
 <script>
         "use strict";
+        var product;
 
         function isLoading() {
             return $("#loading").css("opacity") != 0;
@@ -120,7 +146,8 @@
         function hideAll() {
             $("#no_data").hide();
             $("#product").hide();
-            $("#name").empty();
+            $(".name").empty();
+            $(".ean").empty();
             $("#image").src = "";
             $("#throwaway").hide();
             $("#green_list").empty();
@@ -129,7 +156,8 @@
             $("#source_url").empty();
         }
 
-        var recycle = $("#recycle")
+
+        var recycle = $("#recycle");
         recycle.submit(function (evt) {
             evt.preventDefault();
 
@@ -145,16 +173,18 @@
             if (barcodeVal.length == 0) {
                 recycle.addClass("has-error");
             } else {
+                product = null;
                 $("#loading").fadeTo("fast", 1.);
                 recycle.removeClass("has-error");
                 $("#help").text("");
                 var url = "/throwaway/" + barcodeVal;
 
-                $.get( url, function(data) {
+                $.get(url, function(data) {
                     data = $.parseJSON(data)
                     var throwAway = data.ThrowAway;
-                    var product = data.Product;
-                    $("#name").text(product.Name);
+                    product = data.Product;
+                    $(".name").text(product.Name);
+                    $(".ean").text(product.EAN);
                     $("#image").attr("src", product.ImageURL);
                     var sourceUrl = $("#source_url");
                     sourceUrl.attr("href", product.WebsiteURL);
@@ -193,6 +223,28 @@
                 });
             }
             return false;
+        });
+
+
+        var blacklist = $("#blacklist_form");
+        blacklist.submit(function (evt) {
+            evt.preventDefault();
+            var name = $("#blacklist_name");
+            var nameVal = name.val();
+
+            if (nameVal.length == 0) {
+                blacklist.addClass("has-error");
+            } else {
+                $.post("/blacklist/add/", {name: nameVal, url: product.URL, ean: product.EAN, website: product.WebsiteName}, function() {
+                    $('#blacklist_modal').modal('toggle');
+                });
+            }
+
+            return false;
+        });
+
+        $('#blacklist_modal').on('hidden.bs.modal', function () {
+            blacklist.removeClass("has-error");
         });
 
 </script>
