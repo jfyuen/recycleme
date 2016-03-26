@@ -59,9 +59,9 @@ func MaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", out)
 }
 
-func ThrowAwayHandler(w http.ResponseWriter, r *http.Request) {
+func ThrowAwayHandler(w http.ResponseWriter, r *http.Request, f Fetcher) {
 	ean := r.URL.Path[len("/throwaway/"):]
-	product, err := Scrap(ean)
+	product, err := f.Fetch(ean)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

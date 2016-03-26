@@ -5,17 +5,19 @@ import (
 )
 
 func TestAmazonFetcher(t *testing.T) {
-	if AmazonFetcher.SecretKey == "" || AmazonFetcher.AccessKey == "" || AmazonFetcher.AssociateTag == "" {
+	amazonFetcher, err := NewAmazonURLFetcher()
+
+	if amazonFetcher.SecretKey == "" || amazonFetcher.AccessKey == "" || amazonFetcher.AssociateTag == "" {
 		t.Log("Missing either AccessKey, SecretKey or AssociateTag. AmazonFetcher will not be tested")
 		return
 	}
-	_, err := AmazonFetcher.Fetch("4006381333634")
+	_, err = amazonFetcher.Fetch("4006381333634")
 	if err != nil {
 		if err.(*ProductError).err != errTooManyProducts {
 			t.Fatal(err)
 		}
 	}
-	p, err := AmazonFetcher.Fetch("5021991938818")
+	p, err := amazonFetcher.Fetch("5021991938818")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,15 +70,16 @@ func TestDefaultFetchers(t *testing.T) {
 }
 
 func TestScrap(t *testing.T) {
-	_, err := Scrap("5029053038896")
+	fetcher, _ := NewDefaultFetcher()
+	_, err := fetcher.Fetch("5029053038896")
 	if err != nil {
 		t.Error(err)
 	} else {
-		_, err = Scrap("7613034383808")
+		_, err = fetcher.Fetch("7613034383808")
 		if err != nil {
 			t.Error(err)
 		} else {
-			_, err = Scrap("7640140337517")
+			_, err = fetcher.Fetch("7640140337517")
 			if err == nil {
 				t.Error(err)
 			}

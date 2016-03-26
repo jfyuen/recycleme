@@ -7,11 +7,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	eancheck "github.com/nicholassm/go-ean"
 	"golang.org/x/net/html"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -38,6 +38,27 @@ func (p Product) JSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
+// Fetcher query something (URL, database, ...) with EAN, and return the Product stored or scrapped
+type Fetcher interface {
+	Fetch(ean string) (Product, error)
+}
+
+// URL that can be fetched by fetchers, it must be a format string, the %s will be replaced by the EAN
+type FetchableURL string
+
+// Create a new FetchableURL, checking that it contains the correct format to place the EAN in the URL
+func NewFetchableURL(url string) (FetchableURL, error) {
+	if !strings.Contains(url, "%s") && !strings.Contains(url, "%v") {
+		return FetchableURL(""), fmt.Errorf("URL %v does not containt format string to insert EAN", url)
+	}
+
+	return FetchableURL(url), nil
+}
+
+func (f FetchableURL) fullURL(ean string) string {
+	return fmt.Sprintf(string(f), ean)
+}
+
 var client = http.Client{
 	Timeout: time.Duration(15 * time.Second),
 }
@@ -60,65 +81,36 @@ func fetchURL(url string) ([]byte, error) {
 	}
 }
 
-// Fetcher query something (URL, database, ...) with EAN, and return the Product stored or scrapped
-type Fetcher interface {
-	Fetch(ean string) (Product, error)
-}
-
-// URL that can be fetched by fetchers, it must be a format string, the %s will be replaced by the EAN
-type FetchableURL string
-
-// Create a new FetchableURL, checking that it contains the correct format to place the EAN in the URL
-func NewFetchableURL(url string) (FetchableURL, error) {
-	if !strings.Contains(url, "%s") && !strings.Contains(url, "%v") {
-		return FetchableURL(""), fmt.Errorf("URL %v does not containt format string to insert EAN", url)
-	}
-
-	return FetchableURL(url), nil
-}
-
-func (f FetchableURL) fullURL(ean string) string {
-	return fmt.Sprintf(string(f), ean)
-}
-
 type upcItemDbURL struct {
 	FetchableURL
 }
+
+// Fetcher for upcitemdb.com
+var UpcItemDbFetcher = upcItemDbURL{"http://www.upcitemdb.com/upc/%s"}
 
 type openFoodFactsURL struct {
 	FetchableURL
 }
 
+// Fetcher for openfoodfacts.org (using json api)
+var OpenFoodFactsFetcher = openFoodFactsURL{"http://fr.openfoodfacts.org/api/v0/produit/%s.json"}
+
 type isbnSearchURL struct {
 	FetchableURL
 }
+
+// Fetcher for isbnsearch.org (using json api)
+var IsbnSearchFetcher = isbnSearchURL{"http://www.isbnsearch.org/isbn/%s"}
 
 type amazonURL struct {
 	endPoint                           string
 	AccessKey, SecretKey, AssociateTag string
 }
 
-// Fetcher for upcitemdb.com
-var UpcItemDbFetcher upcItemDbURL
-
-// Fetcher for openfoodfacts.org (using json api)
-var OpenFoodFactsFetcher openFoodFactsURL
-
-// Fetcher for isbnsearch.org (using json api)
-var IsbnSearchFetcher isbnSearchURL
-
 // Fetcher for ean-search.org (using json api)
 var AmazonFetcher amazonURL
 
-// Fetchers is a list of default fetchers already implemented.
-// Currently supported websited:
-// - upcitemdb
-// - openfoodfacts
-// - isbnsearch
-// - amazon (if credentials are provided)
-var fetchers []Fetcher
-
-func initAmazonURL() bool {
+func NewAmazonURLFetcher() (amazonURL, error) {
 	fetcher := amazonURL{}
 	var accessOk, secretOk, associateTagOk bool
 	fetcher.AccessKey, accessOk = os.LookupEnv("RECYCLEME_ACCESS_KEY")
@@ -126,36 +118,9 @@ func initAmazonURL() bool {
 	fetcher.AssociateTag, associateTagOk = os.LookupEnv("RECYCLEME_ASSOCIATE_TAG")
 	if accessOk && secretOk && associateTagOk {
 		fetcher.endPoint = "webservices.amazon.fr"
-		AmazonFetcher = fetcher
-		return true
+		return fetcher, nil
 	}
-	return false
-}
-
-func init() {
-	fetchable, err := NewFetchableURL("http://www.upcitemdb.com/upc/%s")
-	if err != nil {
-		log.Fatal(err)
-	}
-	UpcItemDbFetcher = upcItemDbURL{fetchable}
-
-	fetchable, err = NewFetchableURL("http://fr.openfoodfacts.org/api/v0/produit/%s.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-	OpenFoodFactsFetcher = openFoodFactsURL{fetchable}
-
-	fetchable, err = NewFetchableURL("http://www.isbnsearch.org/isbn/%s")
-	if err != nil {
-		log.Fatal(err)
-	}
-	IsbnSearchFetcher = isbnSearchURL{fetchable}
-	fetchers = []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher}
-	if initAmazonURL() {
-		fetchers = append(fetchers, AmazonFetcher)
-	} else {
-		log.Println("Missing either RECYCLEME_ACCESS_KEY, RECYCLEME_SECRET_KEY or RECYCLEME_ASSOCIATE_TAG in environment. AmazonFetcher will not be used")
-	}
+	return fetcher, errors.New("Missing either RECYCLEME_ACCESS_KEY, RECYCLEME_SECRET_KEY or RECYCLEME_ASSOCIATE_TAG in environment. AmazonFetcher will not be used")
 }
 
 func (f upcItemDbURL) Fetch(ean string) (Product, error) {
@@ -424,10 +389,32 @@ func (f amazonURL) Fetch(ean string) (Product, error) {
 	return Product{EAN: ean, URL: f.endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL}, nil
 }
 
-// Scrap a Product data bases on its EAN with default Fetchers
+type DefaultFetcher struct {
+	fetchers []Fetcher
+}
+
+// NewDefaultFetcher fetches data from a list of default fetchers already implemented.
+// Currently supported websited:
+// - upcitemdb
+// - openfoodfacts
+// - isbnsearch
+// - amazon (if credentials are provided)
+// TODO: should return a warning, or info, not an error.
+func NewDefaultFetcher() (DefaultFetcher, error) {
+	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher}
+	amazonFetcher, err := NewAmazonURLFetcher()
+	if err != nil {
+		return DefaultFetcher{fetchers: fetchers}, err
+	}
+	AmazonFetcher = amazonFetcher
+	fetchers = append(fetchers, amazonFetcher)
+	return DefaultFetcher{fetchers: fetchers}, nil
+}
+
+// Fetch a Product data bases on its EAN with default Fetchers
 // All Default Fetchers are executed in goroutines
 // Return the Product if it is found on one site (the fastest).
-func Scrap(ean string) (Product, error) {
+func (f DefaultFetcher) Fetch(ean string) (Product, error) {
 	if !eancheck.Valid(ean) {
 		return Product{}, fmt.Errorf("invalid EAN %v", ean)
 	}
@@ -438,7 +425,7 @@ func Scrap(ean string) (Product, error) {
 
 	c := make(chan prodErr)
 	q := make(chan struct{})
-	for _, f := range fetchers {
+	for _, f := range f.fetchers {
 		go func(f Fetcher) {
 			product, err := f.Fetch(ean)
 			select {
@@ -451,13 +438,13 @@ func Scrap(ean string) (Product, error) {
 	}
 
 	defer close(q)
-	errors := make([]error, 0, len(fetchers))
+	errors := make([]error, 0, len(f.fetchers))
 	i := 0
 	for pe := range c {
 		i++
 		if pe.err != nil {
 			errors = append(errors, pe.err)
-			if i == len(fetchers) {
+			if i == len(f.fetchers) {
 				break
 			}
 		} else {
