@@ -69,20 +69,20 @@ func TestDefaultFetchers(t *testing.T) {
 	}
 }
 
-func TestScrap(t *testing.T) {
+func TestDefaultFetcher(t *testing.T) {
 	fetcher, _ := NewDefaultFetcher()
 	_, err := fetcher.Fetch("5029053038896")
 	if err != nil {
-		t.Error(err)
-	} else {
-		_, err = fetcher.Fetch("7613034383808")
-		if err != nil {
-			t.Error(err)
-		} else {
-			_, err = fetcher.Fetch("7640140337517")
-			if err == nil {
-				t.Error(err)
-			}
-		}
+		t.Fatal(err)
+	}
+
+	_, err = fetcher.Fetch("7613034383808")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = fetcher.Fetch("7640140337517")
+	if err == nil {
+		t.Fatal(err)
 	}
 }
