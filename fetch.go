@@ -20,11 +20,12 @@ import (
 )
 
 type Product struct {
-	EAN        string // EAN number for the Product
-	Name       string // Name of the Product
-	URL        string // URL where the details of the Product were found
-	ImageURL   string // URL where to find an image of the Product
-	WebsiteURL string // URL where to find the details of the Product
+	EAN         string // EAN number for the Product
+	Name        string // Name of the Product
+	URL         string // URL where the details of the Product were found
+	ImageURL    string // URL where to find an image of the Product
+	WebsiteURL  string // URL where to find the details of the Product
+	WebsiteName string // Website name
 }
 
 func (p Product) String() string {
@@ -137,6 +138,7 @@ func (f upcItemDbURL) Fetch(ean string) (Product, error) {
 	p.EAN = ean
 	p.URL = url
 	p.WebsiteURL = url
+	p.WebsiteName = "UPCItemDB"
 	return p, nil
 
 }
@@ -235,7 +237,7 @@ func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 		}
 	}
 	websiteURL := fmt.Sprintf("http://fr.openfoodfacts.org/produit/%s/", ean)
-	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL, WebsiteURL: websiteURL}, nil
+	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL, WebsiteURL: websiteURL, WebsiteName: "OpenFoodFacts"}, nil
 }
 
 func (f isbnSearchURL) Fetch(ean string) (Product, error) {
@@ -251,6 +253,7 @@ func (f isbnSearchURL) Fetch(ean string) (Product, error) {
 	p.EAN = ean
 	p.URL = url
 	p.WebsiteURL = url
+	p.WebsiteName = "ISBNSearch"
 	return p, nil
 }
 
@@ -390,7 +393,7 @@ func (f amazonURL) Fetch(ean string) (Product, error) {
 	}
 
 	firstItem := response.Item[0]
-	return Product{EAN: ean, URL: f.endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL, WebsiteURL: firstItem.DetailPageURL}, nil
+	return Product{EAN: ean, URL: f.endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL, WebsiteURL: firstItem.DetailPageURL, WebsiteName: "Amazon.fr"}, nil
 }
 
 type DefaultFetcher struct {
