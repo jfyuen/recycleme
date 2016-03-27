@@ -32,7 +32,24 @@ Contributions are welcomed to support more websites or databases.
 ## Website
 
 The website is supported and hosted on http://www.howtorecycle.me.
-It features a database with product and scrapping/link to some database.
+It features a minimal database with product and scrapping/link to some websites.
+
+The following environment variables are necessary to receive mails from the app:
+- RECYLEME_MAIL_HOST
+- RECYLEME_MAIL_RECIPIENT
+- RECYLEME_MAIL_USERNAME
+- RECYLEME_MAIL_PASSWORD
+
+
+## Heroku deployment
+
+The app itself is "heroku" ready. Just deploy it directly:
+```bash
+$ heroku login
+$ heroku create
+$ heroku push heroku master
+$ heroku open
+```
 
 ## Run in server mode
 
