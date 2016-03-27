@@ -68,7 +68,13 @@ func (b *blacklist) AddBlacklistHandler(w http.ResponseWriter, r *http.Request, 
 	if f.IsURLValidForEAN(url, ean) {
 		b.Add(url)
 		name := r.FormValue("name")
-		logger.Printf("Blacklisting %s. %s should be %s\n", url, ean, name)
+		logger.Println(fmt.Sprintf("Blacklisting %s. %s should be %s", url, ean, name))
+		go func() {
+			err := sendMail(ean+" blacklisted", fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
+			if err != nil {
+				logger.Println(err)
+			}
+		}()
 	}
 	fmt.Fprintf(w, "ok")
 }
