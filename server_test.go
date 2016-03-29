@@ -1,6 +1,7 @@
 package recycleme
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -16,7 +17,7 @@ func init() {
 }
 
 func (f FetchableURL) Fetch(ean string) (Product, error) {
-	return Product{}, nil
+	return Product{Name: "TEST", URL: fullURL(f.URL, ean), WebsiteName: f.WebsiteName, EAN: ean}, nil
 }
 
 func (f FetchableURL) IsURLValidForEAN(url, ean string) bool {
@@ -48,12 +49,12 @@ func TestAddBlacklistHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.New(ioutil.Discard, "", 0)
 		Blacklist.AddBlacklistHandler(w, r, logger, nopFetcher)
 	})
 
+	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
@@ -80,5 +81,30 @@ func TestAddBlacklistHandler(t *testing.T) {
 	if status := rr.Code; status != http.StatusInternalServerError {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusInternalServerError)
 	}
+}
 
+func TestThrowAwayHandler(t *testing.T) {
+	ean := "4006381333634"
+	req, err := http.NewRequest("GET", "/throwaway/"+ean, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nopFetcher := FetchableURL{URL: "http://www.example.com/%s/", WebsiteName: "Example.com"}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ThrowAwayHandler(w, r, nopFetcher)
+	})
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	url := fullURL(nopFetcher.URL, ean)
+	expected := fmt.Sprintf(`{"Product":{"EAN":"%s","Name":"TEST","URL":"%s","ImageURL":"","WebsiteURL":"","WebsiteName":"%s"},"ThrowAway":{}}`, ean, url, nopFetcher.WebsiteName)
+	if rr.Body.String() != expected {
+		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
+	}
 }
