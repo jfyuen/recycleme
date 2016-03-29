@@ -61,7 +61,7 @@ func TestAddBlacklistHandler(t *testing.T) {
 	m := &mailTester{expectedBody: fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name), expectedSubject: ean + " blacklisted"}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.New(ioutil.Discard, "", 0)
-		Blacklist.AddBlacklistHandler(w, r, logger, nopFetcher, m)
+		Blacklist.AddBlacklistHandler(w, r, logger, nopFetcher, m.sendMail)
 	})
 
 	rr := httptest.NewRecorder()

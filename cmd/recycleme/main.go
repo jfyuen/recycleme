@@ -38,16 +38,21 @@ func main() {
 	}
 
 	if *serverFlag {
-		mailSender, err := recycleme.NewEmailConfig(os.Getenv("RECYLEME_MAIL_HOST"), os.Getenv("RECYLEME_MAIL_RECIPIENT"), os.Getenv("RECYLEME_MAIL_USERNAME"), os.Getenv("RECYLEME_MAIL_PASSWORD"))
+		emailConfig, err := recycleme.NewEmailConfig(os.Getenv("RECYLEME_MAIL_HOST"), os.Getenv("RECYLEME_MAIL_RECIPIENT"), os.Getenv("RECYLEME_MAIL_USERNAME"), os.Getenv("RECYLEME_MAIL_PASSWORD"))
+		var mailHandler recycleme.Mailer
 		if err != nil {
 			logger.Println(err.Error())
-			mailSender = recycleme.NopMailer
+			mailHandler = func(subject, body string) error {
+				return nil
+			}
+		} else {
+			mailHandler = emailConfig.SendMail
 		}
 		http.HandleFunc("/bin/", recycleme.BinHandler)
 		http.HandleFunc("/bins/", recycleme.BinsHandler)
 		http.HandleFunc("/materials/", recycleme.MaterialsHandler)
 		http.HandleFunc("/blacklist/add/", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.Blacklist.AddBlacklistHandler(w, r, logger, fetcher, mailSender)
+			recycleme.Blacklist.AddBlacklistHandler(w, r, logger, fetcher, mailHandler)
 		})
 		http.HandleFunc("/throwaway/", func(w http.ResponseWriter, r *http.Request) {
 			recycleme.ThrowAwayHandler(w, r, fetcher)

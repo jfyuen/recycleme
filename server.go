@@ -81,7 +81,7 @@ func (b *blacklist) AddBlacklistHandler(w http.ResponseWriter, r *http.Request, 
 	logger.Println(fmt.Sprintf("Blacklisting %s. %s should be %s", url, ean, name))
 	fmt.Fprintf(w, "added")
 	go func() {
-		err := m.sendMail(ean+" blacklisted", fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
+		err := m(ean+" blacklisted", fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
 		if err != nil {
 			logger.Println(err)
 		}
