@@ -12,10 +12,6 @@ import (
 	"testing"
 )
 
-func init() {
-	canSendMail = false
-}
-
 func (f FetchableURL) Fetch(ean string) (Product, error) {
 	return Product{Name: "TEST", URL: fullURL(f.URL, ean), WebsiteName: f.WebsiteName, EAN: ean}, nil
 }
@@ -34,10 +30,23 @@ func createPostRequest(uri string, data url.Values) (*http.Request, error) {
 	return req, nil
 }
 
+type mailTester struct {
+	expectedSubject, expectedBody string
+	err                           error
+}
+
+func (m *mailTester) sendMail(subject, body string) error {
+	if subject != m.expectedSubject || body != m.expectedBody {
+		m.err = fmt.Errorf("subject or body differ: got %v and %v, expected %v and %v", subject, body, m.expectedSubject, m.expectedBody)
+	}
+	return m.err
+}
+
 func TestAddBlacklistHandler(t *testing.T) {
 	nopFetcher := FetchableURL{URL: "http://www.example.com/%s/", WebsiteName: "Example.com"}
 	data := url.Values{}
-	data.Set("name", "test product")
+	name := "test product"
+	data.Set("name", name)
 	ean := "EAN_TEST"
 	data.Set("ean", ean)
 	url := fullURL(nopFetcher.URL, ean)
@@ -49,9 +58,10 @@ func TestAddBlacklistHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	m := &mailTester{expectedBody: fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name), expectedSubject: ean + " blacklisted"}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.New(ioutil.Discard, "", 0)
-		Blacklist.AddBlacklistHandler(w, r, logger, nopFetcher)
+		Blacklist.AddBlacklistHandler(w, r, logger, nopFetcher, m)
 	})
 
 	rr := httptest.NewRecorder()
@@ -64,6 +74,10 @@ func TestAddBlacklistHandler(t *testing.T) {
 	expected := "added"
 	if rr.Body.String() != expected {
 		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
+	}
+
+	if m.err != nil {
+		t.Error(m.err)
 	}
 
 	if !Blacklist.Contains(url) {

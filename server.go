@@ -8,8 +8,6 @@ import (
 	"strconv"
 )
 
-var canSendMail = true
-
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "data/index.html")
 }
@@ -62,7 +60,7 @@ func MaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", out)
 }
 
-func (b *blacklist) AddBlacklistHandler(w http.ResponseWriter, r *http.Request, logger *log.Logger, f Fetcher) {
+func (b *blacklist) AddBlacklistHandler(w http.ResponseWriter, r *http.Request, logger *log.Logger, f Fetcher, m Mailer) {
 	r.ParseForm()
 	url := r.FormValue("url")
 	ean := r.FormValue("ean")
@@ -82,14 +80,12 @@ func (b *blacklist) AddBlacklistHandler(w http.ResponseWriter, r *http.Request, 
 	name := r.FormValue("name")
 	logger.Println(fmt.Sprintf("Blacklisting %s. %s should be %s", url, ean, name))
 	fmt.Fprintf(w, "added")
-	if canSendMail {
-		go func() {
-			err := sendMail(ean+" blacklisted", fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
-			if err != nil {
-				logger.Println(err)
-			}
-		}()
-	}
+	go func() {
+		err := m.sendMail(ean+" blacklisted", fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
+		if err != nil {
+			logger.Println(err)
+		}
+	}()
 }
 
 func ThrowAwayHandler(w http.ResponseWriter, r *http.Request, f Fetcher) {

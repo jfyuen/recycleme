@@ -4,23 +4,45 @@ import (
 	"errors"
 	"fmt"
 	"net/smtp"
-	"os"
 	"strings"
 )
 
-func sendMail(subject, body string) error {
-	host, hostOk := os.LookupEnv("RECYLEME_MAIL_HOST")
-	recipient, recipientOk := os.LookupEnv("RECYLEME_MAIL_RECIPIENT")
-	username, usernameOk := os.LookupEnv("RECYLEME_MAIL_USERNAME")
-	password, passwordOk := os.LookupEnv("RECYLEME_MAIL_PASSWORD")
-	if !hostOk || !recipientOk || !usernameOk || !passwordOk {
-		return errors.New("no mail environment")
-	}
-	if !strings.Contains(host, ":") {
-		return fmt.Errorf("no port specified for host %v", host)
-	}
-	auth := smtp.PlainAuth("", username, password, strings.Split(host, ":")[0])
-	sender := "admin@howtorecycle.me"
-	msg := fmt.Sprintf("From: %s\nTo: %s\nSubject: [RECYCLEME] %s\n\n%s", sender, recipient, subject, body)
-	return smtp.SendMail(host, auth, sender, []string{recipient}, []byte(msg))
+type Mailer interface {
+	sendMail(subject, body string) error
 }
+
+type emailConfig struct {
+	host, recipient, username, password, sender string
+	auth                                        smtp.Auth
+}
+
+func NewEmailConfig(host, recipient, username, password string) (Mailer, error) {
+	e := &emailConfig{host: host, recipient: recipient, username: username, password: password}
+	if e.host == "" || e.recipient == "" || e.username == "" || e.password == "" {
+		return e, errors.New("invalid config parameters")
+	}
+	if !strings.Contains(e.host, ":") {
+		return e, fmt.Errorf("no port specified for host %v", e.host)
+	}
+	e.auth = smtp.PlainAuth("", e.username, e.password, strings.Split(e.host, ":")[0])
+	e.sender = "admin@howtorecycle.me"
+	return e, nil
+}
+
+func (e *emailConfig) createMessage(subject, body string) string {
+	return fmt.Sprintf("From: %s\nTo: %s\nSubject: [RECYCLEME] %s\n\n%s", e.sender, e.recipient, subject, body)
+
+}
+
+func (e *emailConfig) sendMail(subject, body string) error {
+	msg := e.createMessage(subject, body)
+	return smtp.SendMail(e.host, e.auth, e.sender, []string{e.recipient}, []byte(msg))
+}
+
+type nopMailer struct{}
+
+func (e *nopMailer) sendMail(subject, body string) error {
+	return nil
+}
+
+var NopMailer = &nopMailer{}

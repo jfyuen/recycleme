@@ -36,25 +36,32 @@ func main() {
 	if err != nil {
 		logger.Println(err.Error())
 	}
+
 	if *serverFlag {
+		mailSender, err := recycleme.NewEmailConfig(os.Getenv("RECYLEME_MAIL_HOST"), os.Getenv("RECYLEME_MAIL_RECIPIENT"), os.Getenv("RECYLEME_MAIL_USERNAME"), os.Getenv("RECYLEME_MAIL_PASSWORD"))
+		if err != nil {
+			logger.Println(err.Error())
+			mailSender = recycleme.NopMailer
+		}
 		http.HandleFunc("/bin/", recycleme.BinHandler)
 		http.HandleFunc("/bins/", recycleme.BinsHandler)
 		http.HandleFunc("/materials/", recycleme.MaterialsHandler)
 		http.HandleFunc("/blacklist/add/", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.Blacklist.AddBlacklistHandler(w, r, logger, fetcher)
+			recycleme.Blacklist.AddBlacklistHandler(w, r, logger, fetcher, mailSender)
 		})
 		http.HandleFunc("/throwaway/", func(w http.ResponseWriter, r *http.Request) {
 			recycleme.ThrowAwayHandler(w, r, fetcher)
 		})
 		http.HandleFunc("/", recycleme.HomeHandler)
-		fs := http.FileServer(http.Dir("data/static"))
 
+		fs := http.FileServer(http.Dir("data/static"))
 		http.Handle("/static/", http.StripPrefix("/static/", fs))
-		err := http.ListenAndServe(":"+*serverPort, nil)
+
+		logger.Println("Running in server mode")
+		err = http.ListenAndServe(":"+*serverPort, nil)
 		if err != nil {
 			logger.Fatalln(err)
 		}
-		logger.Println("Running in server mode")
 	} else {
 		product, err := fetcher.Fetch(flag.Arg(0))
 		if err != nil {
