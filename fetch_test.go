@@ -48,7 +48,7 @@ func TestAmazonFetcher(t *testing.T) {
 	}
 	if p.Name != "Clipper Thé Vert Biologique 20 infusettes" ||
 		p.EAN != "5021991938818" ||
-		p.URL != "webservices.amazon.fr" ||
+		p.URL != "webservices.amazon.fr/5021991938818" ||
 		p.ImageURL != "http://ecx.images-amazon.com/images/I/517qE9owUDL.jpg" ||
 		p.WebsiteURL != "http://www.amazon.fr/Clipper-Th%C3%A9-Vert-Biologique-infusettes/dp/B011C4L3S0%3FSubscriptionId%3DAKIAIOSACIYSSJVD3IQA%26tag%3Dhowtorecme-21%26linkCode%3Dxm2%26camp%3D2025%26creative%3D165953%26creativeASIN%3DB011C4L3S0" {
 		t.Errorf("Some attributes are invalid for: %v", p)
