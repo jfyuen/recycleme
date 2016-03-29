@@ -23,6 +23,16 @@ func (f FetchableURL) IsURLValidForEAN(url, ean string) bool {
 	return fullURL(f.URL, ean) == url
 }
 
+func createPostRequest(uri string, data url.Values) (*http.Request, error) {
+	req, err := http.NewRequest("POST", uri, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	return req, nil
+}
+
 func TestAddBlacklistHandler(t *testing.T) {
 	nopFetcher := FetchableURL{URL: "http://www.example.com/%s/", WebsiteName: "Example.com"}
 	data := url.Values{}
@@ -33,9 +43,7 @@ func TestAddBlacklistHandler(t *testing.T) {
 	data.Set("url", url)
 	data.Set("website", nopFetcher.WebsiteName)
 
-	req, err := http.NewRequest("POST", "/blacklist/add", strings.NewReader(data.Encode()))
-	req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req, err := createPostRequest("/blacklist/add", data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,4 +68,17 @@ func TestAddBlacklistHandler(t *testing.T) {
 	if !Blacklist.Contains(url) {
 		t.Errorf("%v not added to blacklist", url)
 	}
+
+	data.Set("url", "invalid")
+	req, err = createPostRequest("/blacklist/add", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusInternalServerError {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusInternalServerError)
+	}
+
 }
