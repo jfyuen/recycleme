@@ -8,6 +8,8 @@ import (
 	"strconv"
 )
 
+var canSendMail = true
+
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "data/index.html")
 }
@@ -65,10 +67,22 @@ func (b *blacklist) AddBlacklistHandler(w http.ResponseWriter, r *http.Request, 
 	url := r.FormValue("url")
 	ean := r.FormValue("ean")
 
-	if f.IsURLValidForEAN(url, ean) {
-		b.Add(url)
-		name := r.FormValue("name")
-		logger.Println(fmt.Sprintf("Blacklisting %s. %s should be %s", url, ean, name))
+	if url == "" || ean == "" {
+		http.Error(w, "missing form data", http.StatusInternalServerError)
+		return
+	}
+
+	if !f.IsURLValidForEAN(url, ean) {
+		msg := fmt.Sprintf("url %v invalid for ean %v", url, ean)
+		http.Error(w, msg, http.StatusInternalServerError)
+		return
+	}
+
+	b.Add(url)
+	name := r.FormValue("name")
+	logger.Println(fmt.Sprintf("Blacklisting %s. %s should be %s", url, ean, name))
+	fmt.Fprintf(w, "added")
+	if canSendMail {
 		go func() {
 			err := sendMail(ean+" blacklisted", fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
 			if err != nil {
@@ -76,7 +90,6 @@ func (b *blacklist) AddBlacklistHandler(w http.ResponseWriter, r *http.Request, 
 			}
 		}()
 	}
-	fmt.Fprintf(w, "ok")
 }
 
 func ThrowAwayHandler(w http.ResponseWriter, r *http.Request, f Fetcher) {
