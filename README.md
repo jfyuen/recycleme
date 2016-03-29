@@ -1,4 +1,4 @@
-# Recycle me
+# Recycle me [![Build Status](https://travis-ci.org/jfyuen/recycleme.svg?branch=master)](https://travis-ci.org/jfyuen/recycleme) [![Coverage Status](https://coveralls.io/repos/github/jfyuen/recycleme/badge.svg?branch=master)](https://coveralls.io/github/jfyuen/recycleme?branch=master)
 
 A tool to check product based on bar code (EAN8 and EAN13 currently supported) and give information on how to recycle product waste and packaging.
 The website using this tool is http://www.howtorecycle.me
