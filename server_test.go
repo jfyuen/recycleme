@@ -1,6 +1,7 @@
 package recycleme
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -120,5 +121,36 @@ func TestThrowAwayHandler(t *testing.T) {
 	expected := fmt.Sprintf(`{"Product":{"EAN":"%s","Name":"TEST","URL":"%s","ImageURL":"","WebsiteURL":"","WebsiteName":"%s"},"ThrowAway":{}}`, ean, url, nopFetcher.WebsiteName)
 	if rr.Body.String() != expected {
 		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
+	}
+}
+
+func TestMaterialsHandler(t *testing.T) {
+	req, err := http.NewRequest("GET", "/materials/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(MaterialsHandler)
+	handler.ServeHTTP(rr, req)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+	var out map[string]Material
+	err = json.Unmarshal(rr.Body.Bytes(), &out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != len(Materials) {
+		t.Fatalf("got different size %v vs %v", len(out), len(Materials))
+	}
+	for k, v := range out {
+		id, err := strconv.Atoi(k)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := Materials[id]
+		if v.Name != m.Name {
+			t.Errorf("got different values for key %v: %v vs %v", k, v.Name, m.Name)
+		}
 	}
 }
