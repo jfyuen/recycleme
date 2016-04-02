@@ -68,7 +68,8 @@
         Ne cherchez plus, rentrez le code barre ci-dessous !
     </p>
     <div class="row">
-        <form role="form" class="form-inline" id="recycle">
+        <form role="form" class="form-inline" id="recycle_form">
+            <label class="sr-only" for="barcode">Code barre</label>
             <input type="text" class="form-control form-control-inline" id="barcode" placeholder="Code barre" size="24" required>
             <button type="submit" class="btn btn-primary">
                 Recycler
@@ -85,11 +86,14 @@
     <h2 class="name"></h2>
     <img src="" id="image">
     <div class="source">Source: <a href="" id="source_url" target="_blank"></a></div>
-    <button type="button" class="btn btn-info btn-default" data-toggle="modal" data-target="#blacklist_modal">Pas le bon produit ? </button>
+    <button type="button" class="btn btn-info btn-default" data-toggle="modal" data-target="#blacklist_modal">Pas le bon produit ?</button>
 </section>
+
 <section class="container-fluid collapse text-center" id="no_data">
     <h3>Aucune information d'emballage trouvée</h3>
+    <button type="button" class="btn btn-info btn-default" data-toggle="modal" data-target="#suggest_modal" id="suggest_button">Suggérer un emballage</button>
 </section>
+
 <section class="container-fluid collapse" id="throwaway">
     <div class="col-sm-4 text-center" id="green_bin">
         <h3 style="color:green">Bac à couvercle vert</h3>
@@ -118,6 +122,7 @@
             <div class="modal-body">
                 <p>Le code barre <b class="ean"></b> ne correspond pas à <b class="name "></b> ?</p>
                 <form role="form" class="form-inline" id="blacklist_form">
+                    <label class="sr-only" for="blacklist_name">Nom du bon produit</label>
                     <input type="text" class="form-control form-control-inline" id="blacklist_name" placeholder="Nom du bon produit" size="50" required>
                     <button type="submit" class="btn btn-primary">
                         Signaler
@@ -125,7 +130,37 @@
                 </form>
             </div>
         </div>
+    </div>
+</div>
 
+<!-- Suggest Modal -->
+<div class="modal fade" id="suggest_modal" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h2 class="modal-title">Suggérer un emballage</h2>
+            </div>
+            <div class="modal-body">
+                <div id="suggest_help"></div>
+                <form role="form" class="form-group" id="suggest_form">
+                    <div id="materials_list">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        Suggérer
+                    </button>
+                </form>
+                <!--<form role="form" class="form-inline" id="missing_package_form">-->
+                    <!--<label class="sr-only" for="missing_package_name">Nom d'un emballage</label>-->
+                    <!--<input type="text" class="form-control form-control-inline" id="missing_package_name" placeholder="Nom d'un emballage" size="50" required>-->
+                    <!--<button type="submit" class="btn btn-default">-->
+                        <!--Ajouter-->
+                    <!--</button>-->
+                <!--</form>-->
+            </div>
+        </div>
     </div>
 </div>
 
@@ -157,7 +192,7 @@
         }
 
 
-        var recycle = $("#recycle");
+        var recycle = $("#recycle_form");
         recycle.submit(function (evt) {
             evt.preventDefault();
 
@@ -235,7 +270,7 @@
             if (nameVal.length == 0) {
                 blacklist.addClass("has-error");
             } else {
-                $.post("/blacklist/add/", {name: nameVal, url: product.URL, ean: product.EAN, website: product.WebsiteName}, function() {
+                $.post("/blacklist/add", {name: nameVal, url: product.URL, ean: product.EAN, website: product.WebsiteName}, function() {
                     $('#blacklist_modal').modal('toggle');
                 });
             }
@@ -243,8 +278,61 @@
             return false;
         });
 
-        $('#blacklist_modal').on('hidden.bs.modal', function () {
+        $("#blacklist_modal").on("hidden.bs.modal", function () {
             blacklist.removeClass("has-error");
+        });
+
+        function addMaterialItem(lst, id, name) {
+            lst.append('<div class="checkbox-inline col-sm-4"><label for="materialId-' + id + '"><input type="checkbox" value="" id="materialId-' + id + '">' + name + '</label></div>');
+        }
+
+        $("#suggest_button").click(function() {
+            var url = "/materials/";
+
+            $.get(url, function(data) {
+                data = $.parseJSON(data)
+                console.log(data);
+
+                if (jQuery.isEmptyObject(data)) {
+                    $("#suggest_help").text("Pas d'emballage disponible");
+                } else {
+                    var lst = $("#materials_list");
+                    lst.html("");
+                    for (var k in data) {
+                        addMaterialItem(lst, k, data[k].Name);
+                    }
+                }
+            }).fail(function(xhr) {
+                $("#suggest_help").html(xhr.responseText.replace(/\n/g, "<br>"));
+            });
+        });
+
+        var suggest_form = $("#suggest_form");
+        suggest_form.submit(function (evt) {
+            evt.preventDefault();
+
+            var selected = [];
+            $('#materials_list input:checked').each(function() {
+                var name = $(this).attr("id");
+                var id = name.replace("materialId-", "");
+                var text = $("label[for=" + name + "]");
+                selected.push({name: text.text(), id: parseInt(id)});
+            });
+
+            if (selected.length == 0) {
+                suggest_form.addClass("has-error");
+            } else {
+                console.log(selected);
+                 $.post("/materials/add", {materials: JSON.stringify(selected), ean: product.EAN}, function() {
+                    $('#suggest_modal').modal('toggle');
+                });
+            }
+
+            return false;
+        });
+
+        $("#suggest_modal").on("hidden.bs.modal", function () {
+            suggest_form.removeClass("has-error");
         });
 
 </script>
