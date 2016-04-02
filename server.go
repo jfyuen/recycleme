@@ -107,7 +107,7 @@ func (p *packages) AddPackageHandler(w http.ResponseWriter, r *http.Request, log
 	var materials []Material
 	err := json.Unmarshal([]byte(materialsStr), &materials)
 	if err != nil {
-		msg := fmt.Sprintf("invalid materials format %v", ean)
+		msg := fmt.Sprintf("invalid materials format %v for %v", materials, ean)
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
