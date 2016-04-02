@@ -62,7 +62,7 @@ func main() {
 		fs := http.FileServer(http.Dir("data/static"))
 		http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-		logger.Println("Running in server mode")
+		logger.Println("Running in server mode on port " + *serverPort)
 		err = http.ListenAndServe(":"+*serverPort, nil)
 		if err != nil {
 			logger.Fatalln(err)
@@ -72,7 +72,11 @@ func main() {
 		if err != nil {
 			logger.Fatalln(err)
 		}
-		pkg := recycleme.NewProductPackage(product)
+		pkg, err := recycleme.NewProductPackage(product)
+		if err != nil {
+			logger.Fatalln(err)
+		}
+
 		if *jsonFlag {
 			jsonBytes, err := pkg.ThrowAwayJSON()
 			if err != nil {

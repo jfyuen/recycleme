@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -34,12 +35,20 @@ func createPostRequest(uri string, data url.Values) (*http.Request, error) {
 type mailTester struct {
 	expectedSubject, expectedBody string
 	err                           error
+	wg                            *sync.WaitGroup
+}
+
+func newMailTester(subject, body string) *mailTester {
+	m := &mailTester{expectedSubject: subject, expectedBody: body, wg: &sync.WaitGroup{}}
+	m.wg.Add(1)
+	return m
 }
 
 func (m *mailTester) sendMail(subject, body string) error {
 	if subject != m.expectedSubject || body != m.expectedBody {
 		m.err = fmt.Errorf("subject or body differ: got %v and %v, expected %v and %v", subject, body, m.expectedSubject, m.expectedBody)
 	}
+	m.wg.Done()
 	return m.err
 }
 
@@ -59,7 +68,7 @@ func TestAddBlacklistHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := &mailTester{expectedBody: fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name), expectedSubject: ean + " blacklisted"}
+	m := newMailTester(fmt.Sprintf(ean+" blacklisted"), fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.New(ioutil.Discard, "", 0)
 		Blacklist.AddBlacklistHandler(w, r, logger, nopFetcher, m.sendMail)
@@ -68,6 +77,7 @@ func TestAddBlacklistHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
+	m.wg.Wait()
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
@@ -152,5 +162,71 @@ func TestMaterialsHandler(t *testing.T) {
 		if v.Name != m.Name {
 			t.Errorf("got different values for key %v: %v vs %v", k, v.Name, m.Name)
 		}
+	}
+}
+
+func TestAddPackageHandler(t *testing.T) {
+	data := url.Values{}
+	ean := "5021991938818"
+	data.Set("ean", ean)
+	expectedMaterials := []Material{Material{Id: 0, Name: "m0"}, Material{Id: 1, Name: "m1"}}
+	materialsJSON, err := json.Marshal(expectedMaterials)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data.Set("materials", string(materialsJSON))
+
+	req, err := createPostRequest("/materials/add", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newMailTester("Adding package for "+ean, fmt.Sprintf("Materials added to %v:\n%v", ean, "[{0 m0} {1 m1}]"))
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger := log.New(ioutil.Discard, "", 0)
+		Packages.AddPackageHandler(w, r, logger, m.sendMail)
+	})
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	m.wg.Wait()
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+	expected := "added"
+	if rr.Body.String() != expected {
+		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
+	}
+
+	if m.err != nil {
+		t.Error(m.err)
+	}
+
+	if v, ok := Packages.Get(ean); !ok {
+		t.Errorf("%v not added to packages", ean)
+	} else {
+		if len(v.Materials) != len(expectedMaterials) {
+			t.Errorf("expected %v packages, got %v", len(expectedMaterials), len(v.Materials))
+		}
+		for i := 0; i < 2; i++ {
+			got := v.Materials[i]
+			ex := expectedMaterials[i]
+			if got != ex {
+				t.Errorf("got material %v, expected %v", got, ex)
+			}
+
+		}
+	}
+
+	data.Set("ean", "invalid")
+	req, err = createPostRequest("/materials/add", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusInternalServerError {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusInternalServerError)
 	}
 }

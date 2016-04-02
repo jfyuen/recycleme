@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 )
 
 type Bin struct {
@@ -28,7 +29,7 @@ var Materials = make(map[int]Material)
 // A Material composes Packaging, different Materials go to different Bin, event ones that may be close enough
 // For example, in Paris, plastic bags go to the green bin, but plastic bottles go to the yellow bin
 type Material struct {
-	id   int
+	Id   int
 	Name string
 }
 
@@ -36,7 +37,6 @@ type Material struct {
 // Several products may have the same types of packaging
 // For example, a pizza box and a frozen product may both have a cardboard box and a plastic foil
 type Package struct {
-	id        int
 	EAN       string
 	Materials []Material
 }
@@ -49,8 +49,29 @@ func (p Package) String() string {
 	return fmt.Sprintf("Product %v is composed of %v", p.EAN, strings.Join(s, ", "))
 }
 
+type packages struct {
+	byEAN map[string]Package
+	sync.Mutex
+}
+
+func (p *packages) Set(ean string, m []Material) {
+	pack := Package{EAN: ean, Materials: m}
+	p.Lock()
+	p.byEAN[ean] = pack
+	p.Unlock()
+}
+
+func (p *packages) Get(ean string) (Package, bool) {
+	v, ok := p.byEAN[ean]
+	return v, ok
+}
+
+func newPackages() *packages {
+	return &packages{byEAN: make(map[string]Package)}
+}
+
 // Packages indexes Package by EAN
-var Packages = make(map[string]Package)
+var Packages = newPackages()
 
 // ProductPackage links a Product and its packages
 type ProductPackage struct {
@@ -58,11 +79,14 @@ type ProductPackage struct {
 	materials []Material
 }
 
-func NewProductPackage(p Product) ProductPackage {
+func NewProductPackage(p Product) (ProductPackage, error) {
 	pp := ProductPackage{Product: p}
-	pkg := Packages[p.EAN]
-	pp.materials = pkg.Materials
-	return pp
+	if pkg, ok := Packages.Get(p.EAN); !ok {
+		pp.materials = make([]Material, 0, 0)
+	} else {
+		pp.materials = pkg.Materials
+	}
+	return pp, nil
 }
 
 func (pp ProductPackage) ThrowAway() map[Bin][]Material {
@@ -122,14 +146,14 @@ func LoadMaterialsJSON(r io.Reader, logger *log.Logger) {
 	for _, mIntf := range materials["Materials"].([]interface{}) {
 		m := mIntf.(map[string]interface{})
 		id := m["id"].(float64)
-		material := Material{id: int(id), Name: m["Name"].(string)}
+		material := Material{Id: int(id), Name: m["Name"].(string)}
 		binID := m["binId"].(float64)
 		bin, ok := Bins[int(binID)]
 		if !ok {
 			logger.Fatal(fmt.Errorf("binId %v not found in Bins %v", binID, Bins))
 		}
 		MaterialsToBins[material] = bin
-		Materials[material.id] = material
+		Materials[material.Id] = material
 	}
 }
 
@@ -138,18 +162,18 @@ func LoadPackagesJSON(r io.Reader, logger *log.Logger) {
 	materials := jsonMaterials.(map[string]interface{})
 	for _, mIntf := range materials["Packages"].([]interface{}) {
 		m := mIntf.(map[string]interface{})
-		id := int(m["id"].(float64))
-		pkg := Package{id: int(id), EAN: m["EAN"].(string)}
 		materialsIds := m["materialIds"].([]interface{})
+		var materials []Material
 		for i := range materialsIds {
 			materialID := int(materialsIds[i].(float64))
 			material, ok := Materials[materialID]
 			if !ok {
 				logger.Fatal(fmt.Errorf("materialId %v not found in Materials %v", materialID, Materials))
 			}
-			pkg.Materials = append(pkg.Materials, material)
+			materials = append(materials, material)
 		}
-		Packages[pkg.EAN] = pkg
+		ean := m["EAN"].(string)
+		Packages.Set(ean, materials)
 	}
 }
 
