@@ -144,7 +144,7 @@ func TestPackage(t *testing.T) {
 
 func TestProductPackage(t *testing.T) {
 	product := Product{EAN: "7613034383808", Name: "Four à Pierre Royale", URL: "http://fr.openfoodfacts.org/api/v0/produit/7613034383808.json", ImageURL: "http://static.openfoodfacts.org/images/products/761/303/438/3808/front.8.400.jpg"}
-	pp, err := NewProductPackage(product)
+	pp, err := NewProductPackage(product, Packages)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestProductPackage(t *testing.T) {
 
 func TestThrowAwayJSON(t *testing.T) {
 	product := Product{EAN: "7613034383808"}
-	pkg, err := NewProductPackage(product)
+	pkg, err := NewProductPackage(product, Packages)
 	if err != nil {
 		t.Fatal(err)
 	}

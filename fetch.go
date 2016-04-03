@@ -41,23 +41,28 @@ func (p Product) JSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-type blacklist struct {
+type memoryBlacklistDB struct {
 	blacklisted map[string]struct{}
 	sync.Mutex
 }
 
-func (b *blacklist) Add(url string) {
+func (b *memoryBlacklistDB) Add(url string) {
 	b.Lock()
 	b.blacklisted[url] = struct{}{}
 	b.Unlock()
 }
 
-func (b *blacklist) Contains(url string) bool {
+func (b *memoryBlacklistDB) Contains(url string) bool {
 	_, ok := b.blacklisted[url]
 	return ok
 }
 
-var Blacklist = blacklist{blacklisted: make(map[string]struct{})}
+type BlacklistDB interface {
+	Contains(string) bool
+	Add(string)
+}
+
+var Blacklist = &memoryBlacklistDB{blacklisted: make(map[string]struct{})}
 
 // Fetcher query something (URL, database, ...) with EAN, and return the Product stored or scrapped
 type Fetcher interface {

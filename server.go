@@ -61,7 +61,7 @@ func MaterialsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%s", out)
 }
 
-func (b *blacklist) AddBlacklistHandler(w http.ResponseWriter, r *http.Request, logger *log.Logger, f Fetcher, m Mailer) {
+func AddBlacklistHandler(b BlacklistDB, w http.ResponseWriter, r *http.Request, logger *log.Logger, f Fetcher, m Mailer) {
 	r.ParseForm()
 	url := r.FormValue("url")
 	ean := r.FormValue("ean")
@@ -89,7 +89,7 @@ func (b *blacklist) AddBlacklistHandler(w http.ResponseWriter, r *http.Request, 
 	}()
 }
 
-func (p *packages) AddPackageHandler(w http.ResponseWriter, r *http.Request, logger *log.Logger, m Mailer) {
+func AddPackageHandler(db PackagesDB, w http.ResponseWriter, r *http.Request, logger *log.Logger, m Mailer) {
 	r.ParseForm()
 	materialsStr := r.FormValue("materials")
 	ean := r.FormValue("ean")
@@ -112,7 +112,7 @@ func (p *packages) AddPackageHandler(w http.ResponseWriter, r *http.Request, log
 		return
 	}
 
-	p.Set(ean, materials)
+	db.Set(ean, materials)
 	logger.Println(fmt.Sprintf("Adding %v for %v", materials, ean))
 	fmt.Fprintf(w, "added")
 	go func() {
@@ -123,14 +123,14 @@ func (p *packages) AddPackageHandler(w http.ResponseWriter, r *http.Request, log
 	}()
 }
 
-func ThrowAwayHandler(w http.ResponseWriter, r *http.Request, f Fetcher) {
+func ThrowAwayHandler(db PackagesDB, w http.ResponseWriter, r *http.Request, f Fetcher) {
 	ean := r.URL.Path[len("/throwaway/"):]
 	product, err := f.Fetch(ean)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	pkg, err := NewProductPackage(product)
+	pkg, err := NewProductPackage(product, db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

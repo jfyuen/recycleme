@@ -49,25 +49,30 @@ func (p Package) String() string {
 	return fmt.Sprintf("Product %v is composed of %v", p.EAN, strings.Join(s, ", "))
 }
 
-type packages struct {
+type memoryPackagesDB struct {
 	byEAN map[string]Package
 	sync.Mutex
 }
 
-func (p *packages) Set(ean string, m []Material) {
+func (p *memoryPackagesDB) Set(ean string, m []Material) {
 	pack := Package{EAN: ean, Materials: m}
 	p.Lock()
 	p.byEAN[ean] = pack
 	p.Unlock()
 }
 
-func (p *packages) Get(ean string) (Package, bool) {
+func (p *memoryPackagesDB) Get(ean string) (Package, bool) {
 	v, ok := p.byEAN[ean]
 	return v, ok
 }
 
-func newPackages() *packages {
-	return &packages{byEAN: make(map[string]Package)}
+type PackagesDB interface {
+	Get(string) (Package, bool)
+	Set(ean string, m []Material)
+}
+
+func newPackages() *memoryPackagesDB {
+	return &memoryPackagesDB{byEAN: make(map[string]Package)}
 }
 
 // Packages indexes Package by EAN
@@ -79,9 +84,9 @@ type ProductPackage struct {
 	Materials []Material
 }
 
-func NewProductPackage(p Product) (ProductPackage, error) {
+func NewProductPackage(p Product, db PackagesDB) (ProductPackage, error) {
 	pp := ProductPackage{Product: p}
-	if pkg, ok := Packages.Get(p.EAN); !ok {
+	if pkg, ok := db.Get(p.EAN); !ok {
 		pp.Materials = make([]Material, 0, 0)
 	} else {
 		pp.Materials = pkg.Materials

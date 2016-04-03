@@ -71,7 +71,7 @@ func TestAddBlacklistHandler(t *testing.T) {
 	m := newMailTester(fmt.Sprintf(ean+" blacklisted"), fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.New(ioutil.Discard, "", 0)
-		Blacklist.AddBlacklistHandler(w, r, logger, nopFetcher, m.sendMail)
+		AddBlacklistHandler(Blacklist, w, r, logger, nopFetcher, m.sendMail)
 	})
 
 	rr := httptest.NewRecorder()
@@ -117,7 +117,7 @@ func TestThrowAwayHandler(t *testing.T) {
 
 	nopFetcher := FetchableURL{URL: "http://www.example.com/%s/", WebsiteName: "Example.com"}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ThrowAwayHandler(w, r, nopFetcher)
+		ThrowAwayHandler(Packages, w, r, nopFetcher)
 	})
 
 	rr := httptest.NewRecorder()
@@ -183,7 +183,7 @@ func TestAddPackageHandler(t *testing.T) {
 	m := newMailTester("Adding package for "+ean, fmt.Sprintf("Materials added to %v:\n%v", ean, "[{0 m0} {1 m1}]"))
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.New(ioutil.Discard, "", 0)
-		Packages.AddPackageHandler(w, r, logger, m.sendMail)
+		AddPackageHandler(Packages, w, r, logger, m.sendMail)
 	})
 
 	rr := httptest.NewRecorder()

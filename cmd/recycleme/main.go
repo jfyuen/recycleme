@@ -52,13 +52,13 @@ func main() {
 		http.HandleFunc("/bins/", recycleme.BinsHandler)
 		http.HandleFunc("/materials/", recycleme.MaterialsHandler)
 		http.HandleFunc("/materials/add", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.Packages.AddPackageHandler(w, r, logger, mailHandler)
+			recycleme.AddPackageHandler(recycleme.Packages, w, r, logger, mailHandler)
 		})
 		http.HandleFunc("/blacklist/add", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.Blacklist.AddBlacklistHandler(w, r, logger, fetcher, mailHandler)
+			recycleme.AddBlacklistHandler(recycleme.Blacklist, w, r, logger, fetcher, mailHandler)
 		})
 		http.HandleFunc("/throwaway/", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.ThrowAwayHandler(w, r, fetcher)
+			recycleme.ThrowAwayHandler(recycleme.Packages, w, r, fetcher)
 		})
 		http.HandleFunc("/", recycleme.HomeHandler)
 
@@ -75,7 +75,7 @@ func main() {
 		if err != nil {
 			logger.Fatalln(err)
 		}
-		pkg, err := recycleme.NewProductPackage(product)
+		pkg, err := recycleme.NewProductPackage(product, recycleme.Packages)
 		if err != nil {
 			logger.Fatalln(err)
 		}
