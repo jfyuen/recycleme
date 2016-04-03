@@ -156,11 +156,11 @@ func TestProductPackage(t *testing.T) {
 		t.Errorf("Some attributes are invalid for: %v; expected %v", pp, product)
 	}
 
-	if len(pp.materials) != len(materials) {
+	if len(pp.Materials) != len(materials) {
 		t.Fatalf("Packages for %v differ", pp.EAN)
 	}
 	for i, m := range materials {
-		pkgMaterial := pp.materials[i]
+		pkgMaterial := pp.Materials[i]
 		if m.Id != pkgMaterial.Id || m.Name != pkgMaterial.Name {
 			t.Errorf("Material differ for EAN %v: %v vs %v", pp.EAN, m, pkgMaterial)
 		}
@@ -190,7 +190,7 @@ func TestThrowAwayJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := `{"Product":{"EAN":"7613034383808","Name":"","URL":"","ImageURL":"","WebsiteURL":"","WebsiteName":""},"ThrowAway":{"Bac à couvercle jaune":[{"Id":0,"Name":"Boîte carton"}],"Bac à couvercle vert":[{"Id":1,"Name":"Film plastique"},{"Id":4,"Name":"Nourriture"}]}}`
+	expected := `{"Product":{"EAN":"7613034383808","Name":"","URL":"","ImageURL":"","WebsiteURL":"","WebsiteName":"","Materials":[{"Id":0,"Name":"Boîte carton"},{"Id":1,"Name":"Film plastique"},{"Id":4,"Name":"Nourriture"}]},"ThrowAway":{"Bac à couvercle jaune":[{"Id":0,"Name":"Boîte carton"}],"Bac à couvercle vert":[{"Id":1,"Name":"Film plastique"},{"Id":4,"Name":"Nourriture"}]}}`
 	out, err := pkg.ThrowAwayJSON()
 	if err != nil {
 		t.Fatal(err)

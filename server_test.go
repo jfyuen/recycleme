@@ -128,7 +128,7 @@ func TestThrowAwayHandler(t *testing.T) {
 	}
 
 	url := fullURL(nopFetcher.URL, ean)
-	expected := fmt.Sprintf(`{"Product":{"EAN":"%s","Name":"TEST","URL":"%s","ImageURL":"","WebsiteURL":"","WebsiteName":"%s"},"ThrowAway":{}}`, ean, url, nopFetcher.WebsiteName)
+	expected := fmt.Sprintf(`{"Product":{"EAN":"%s","Name":"TEST","URL":"%s","ImageURL":"","WebsiteURL":"","WebsiteName":"%s","Materials":[]},"ThrowAway":{}}`, ean, url, nopFetcher.WebsiteName)
 	if rr.Body.String() != expected {
 		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
 	}
