@@ -76,22 +76,22 @@ var Packages = newPackages()
 // ProductPackage links a Product and its packages
 type ProductPackage struct {
 	Product
-	materials []Material
+	Materials []Material
 }
 
 func NewProductPackage(p Product) (ProductPackage, error) {
 	pp := ProductPackage{Product: p}
 	if pkg, ok := Packages.Get(p.EAN); !ok {
-		pp.materials = make([]Material, 0, 0)
+		pp.Materials = make([]Material, 0, 0)
 	} else {
-		pp.materials = pkg.Materials
+		pp.Materials = pkg.Materials
 	}
 	return pp, nil
 }
 
 func (pp ProductPackage) ThrowAway() map[Bin][]Material {
 	bins := make(map[Bin][]Material)
-	for _, m := range pp.materials {
+	for _, m := range pp.Materials {
 		bin := MaterialsToBins[m]
 		lst := bins[bin]
 		bins[bin] = append(lst, m)
@@ -106,9 +106,9 @@ func (pp ProductPackage) ThrowAwayJSON() ([]byte, error) {
 		out[k.Name] = v
 	}
 	return json.Marshal(struct {
-		Product   Product
+		Product   ProductPackage
 		ThrowAway map[string][]Material
-	}{pp.Product, out})
+	}{pp, out})
 }
 
 func readJSON(r io.Reader, logger *log.Logger) interface{} {

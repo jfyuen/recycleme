@@ -91,7 +91,7 @@
 
 <section class="container-fluid collapse text-center" id="no_data">
     <h3>Aucune information d'emballage trouvée</h3>
-    <button type="button" class="btn btn-info btn-default" data-toggle="modal" data-target="#suggest_modal" id="suggest_button">Suggérer un emballage</button>
+    <button type="button" class="btn btn-info btn-default suggest_button" data-toggle="modal" data-target="#suggest_modal">Suggérer un emballage</button>
 </section>
 
 <section class="container-fluid collapse" id="throwaway">
@@ -106,6 +106,9 @@
     <div class="col-sm-4 text-center" id="white_bin">
         <h3>Bac à couvercle blanc</h3>
         <div id="white_list"></div>
+    </div>
+    <div class="text-center col-sm-12">
+        <button type="button" class="btn btn-info btn-default suggest_button" data-toggle="modal" data-target="#suggest_modal">Modifier un emballage</button>
     </div>
 </section>
 
@@ -141,7 +144,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h2 class="modal-title">Suggérer un emballage</h2>
+                <h2 class="modal-title">Suggérer ou modifier un emballage</h2>
             </div>
             <div class="modal-body">
                 <div id="suggest_help"></div>
@@ -191,28 +194,21 @@
             $("#source_url").empty();
         }
 
-
-        var recycle = $("#recycle_form");
-        recycle.submit(function (evt) {
-            evt.preventDefault();
-
+        function submitRecycleForm(ean) {
             if (isLoading()) {
                 return false;
             }
 
             hideAll();
 
-            var barcode = $("#barcode");
-            var barcodeVal = barcode.val();
-
-            if (barcodeVal.length == 0) {
+            if (ean.length == 0) {
                 recycle.addClass("has-error");
             } else {
                 product = null;
                 $("#loading").fadeTo("fast", 1.);
                 recycle.removeClass("has-error");
                 $("#help").text("");
-                var url = "/throwaway/" + barcodeVal;
+                var url = "/throwaway/" + ean;
 
                 $.get(url, function(data) {
                     data = $.parseJSON(data)
@@ -258,6 +254,15 @@
                 });
             }
             return false;
+        }
+
+        var recycle = $("#recycle_form");
+        recycle.submit(function (evt) {
+            evt.preventDefault();
+
+            var barcode = $("#barcode");
+            var barcodeVal = barcode.val();
+            return submitRecycleForm(barcodeVal);
         });
 
 
@@ -286,12 +291,11 @@
             lst.append('<div class="checkbox-inline col-sm-4"><label for="materialId-' + id + '"><input type="checkbox" value="" id="materialId-' + id + '">' + name + '</label></div>');
         }
 
-        $("#suggest_button").click(function() {
+        $(".suggest_button").click(function() {
             var url = "/materials/";
 
             $.get(url, function(data) {
                 data = $.parseJSON(data)
-                console.log(data);
 
                 if (jQuery.isEmptyObject(data)) {
                     $("#suggest_help").text("Pas d'emballage disponible");
@@ -300,6 +304,13 @@
                     lst.html("");
                     for (var k in data) {
                         addMaterialItem(lst, k, data[k].Name);
+                    }
+
+                    if (product != null) {
+                        for (var i = 0; i < product.Materials.length; i++) {
+                            var id = product.Materials[i].Id
+                            $("#materialId-" + id.toString()).prop("checked", true);
+                        }
                     }
                 }
             }).fail(function(xhr) {
@@ -322,8 +333,8 @@
             if (selected.length == 0) {
                 suggest_form.addClass("has-error");
             } else {
-                console.log(selected);
                  $.post("/materials/add", {materials: JSON.stringify(selected), ean: product.EAN}, function() {
+                    submitRecycleForm(product.EAN);
                     $('#suggest_modal').modal('toggle');
                 });
             }
