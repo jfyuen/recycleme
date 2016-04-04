@@ -32,6 +32,11 @@
             display: inline;
         }
 
+        .suggest-checkbox {
+            margin-top: 0px;
+            margin-bottom: 5px;
+        }
+
         .bin {
             float: none;
         }
@@ -149,7 +154,7 @@
             <div class="modal-body">
                 <div id="suggest_help"></div>
                 <form role="form" class="form-group" id="suggest_form">
-                    <div id="materials_list">
+                    <div id="materials_list" class="row">
                     </div>
                     <button type="submit" class="btn btn-primary">
                         Suggérer
@@ -288,7 +293,7 @@
         });
 
         function addMaterialItem(lst, id, name) {
-            lst.append('<div class="checkbox-inline col-sm-4"><label for="materialId-' + id + '"><input type="checkbox" value="" id="materialId-' + id + '">' + name + '</label></div>');
+            lst.append('<div class="checkbox col-sm-4 suggest-checkbox"><label for="materialId-' + id + '"><input type="checkbox" value="" id="materialId-' + id + '">' + name + '</label></div>');
         }
 
         $(".suggest_button").click(function() {
