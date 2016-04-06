@@ -51,7 +51,7 @@ func (p Package) String() string {
 
 type memoryPackagesDB struct {
 	byEAN map[string]Package
-	sync.Mutex
+	sync.RWMutex
 }
 
 func (p *memoryPackagesDB) Set(ean string, m []Material) {
@@ -62,6 +62,8 @@ func (p *memoryPackagesDB) Set(ean string, m []Material) {
 }
 
 func (p *memoryPackagesDB) Get(ean string) (Package, bool) {
+	p.RLock()
+	defer p.RUnlock()
 	v, ok := p.byEAN[ean]
 	return v, ok
 }

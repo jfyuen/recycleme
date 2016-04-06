@@ -43,7 +43,7 @@ func (p Product) JSON() ([]byte, error) {
 
 type memoryBlacklistDB struct {
 	blacklisted map[string]struct{}
-	sync.Mutex
+	sync.RWMutex
 }
 
 func (b *memoryBlacklistDB) Add(url string) {
@@ -53,6 +53,8 @@ func (b *memoryBlacklistDB) Add(url string) {
 }
 
 func (b *memoryBlacklistDB) Contains(url string) bool {
+	b.RLock()
+	defer b.RUnlock()
 	_, ok := b.blacklisted[url]
 	return ok
 }
