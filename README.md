@@ -35,10 +35,10 @@ The website is supported and hosted on http://www.howtorecycle.me.
 It features a minimal database with product and scrapping/link to some websites.
 
 The following environment variables are necessary to receive mails from the app:
-- RECYLEME_MAIL_HOST
-- RECYLEME_MAIL_RECIPIENT
-- RECYLEME_MAIL_USERNAME
-- RECYLEME_MAIL_PASSWORD
+- RECYCLEME_MAIL_HOST
+- RECYCLEME_MAIL_RECIPIENT
+- RECYCLEME_MAIL_USERNAME
+- RECYCLEME_MAIL_PASSWORD
 
 
 ## Heroku deployment

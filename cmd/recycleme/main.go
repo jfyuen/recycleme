@@ -38,7 +38,7 @@ func main() {
 	}
 
 	if *serverFlag {
-		emailConfig, err := recycleme.NewEmailConfig(os.Getenv("RECYLEME_MAIL_HOST"), os.Getenv("RECYLEME_MAIL_RECIPIENT"), os.Getenv("RECYLEME_MAIL_USERNAME"), os.Getenv("RECYLEME_MAIL_PASSWORD"))
+		emailConfig, err := recycleme.NewEmailConfig(os.Getenv("RECYCLEME_MAIL_HOST"), os.Getenv("RECYCLEME_MAIL_RECIPIENT"), os.Getenv("RECYCLEME_MAIL_USERNAME"), os.Getenv("RECYCLEME_MAIL_PASSWORD"))
 		var mailHandler recycleme.Mailer
 		if err != nil {
 			logger.Println(err.Error())
