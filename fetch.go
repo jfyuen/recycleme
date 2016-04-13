@@ -21,12 +21,12 @@ import (
 )
 
 type Product struct {
-	EAN         string // EAN number for the Product
-	Name        string // Name of the Product
-	URL         string // URL where the details of the Product were found
-	ImageURL    string // URL where to find an image of the Product
-	WebsiteURL  string // URL where to find the details of the Product
-	WebsiteName string // Website name
+	EAN         string `json:"ean"`         // EAN number for the Product
+	Name        string `json:"name"`        // Name of the Product
+	URL         string `json:"url"`         // URL where the details of the Product were found
+	ImageURL    string `json:"imageURL"`    // URL where to find an image of the Product
+	WebsiteURL  string `json:"websiteURL"`  // URL where to find the details of the Product
+	WebsiteName string `json:"websiteName"` // Website name
 }
 
 func (p Product) String() string {
@@ -46,22 +46,23 @@ type memoryBlacklistDB struct {
 	sync.RWMutex
 }
 
-func (b *memoryBlacklistDB) Add(url string) {
+func (b *memoryBlacklistDB) Add(url string) error {
 	b.Lock()
 	b.blacklisted[url] = struct{}{}
 	b.Unlock()
+	return nil
 }
 
-func (b *memoryBlacklistDB) Contains(url string) bool {
+func (b *memoryBlacklistDB) Contains(url string) (bool, error) {
 	b.RLock()
 	defer b.RUnlock()
 	_, ok := b.blacklisted[url]
-	return ok
+	return ok, nil
 }
 
 type BlacklistDB interface {
-	Contains(string) bool
-	Add(string)
+	Contains(url string) (bool, error)
+	Add(url string) error
 }
 
 var Blacklist = &memoryBlacklistDB{blacklisted: make(map[string]struct{})}
@@ -157,25 +158,39 @@ func (f upcItemDbURL) IsURLValidForEAN(url, ean string) bool {
 	return fullURL(f.URL, ean) == url
 }
 
-func (f upcItemDbURL) Fetch(ean string) (Product, error) {
-	url := fullURL(f.URL, ean)
-	if Blacklist.Contains(url) {
+type innerFetchFunc func() (Product, error)
+
+func withCheckInBlacklist(b BlacklistDB, ean, url string, fn innerFetchFunc) (Product, error) {
+	if ok, err := Blacklist.Contains(url); err != nil {
+		return Product{}, NewProductError(ean, url, err)
+	} else if ok {
 		return Product{}, NewProductError(ean, url, errBlacklisted)
 	}
-	body, err := fetchURL(url)
+
+	p, err := fn()
 	if err != nil {
 		return Product{}, NewProductError(ean, url, err)
 	}
-	p, err := f.parseBody(body)
-	if err != nil {
-		return p, NewProductError(ean, url, err)
-	}
-	p.EAN = ean
-	p.URL = url
-	p.WebsiteURL = url
-	p.WebsiteName = f.WebsiteName
 	return p, nil
+}
 
+func (f upcItemDbURL) Fetch(ean string) (Product, error) {
+	url := fullURL(f.URL, ean)
+	return withCheckInBlacklist(Blacklist, ean, url, func() (Product, error) {
+		body, err := fetchURL(url)
+		if err != nil {
+			return Product{}, err
+		}
+		p, err := f.parseBody(body)
+		if err != nil {
+			return p, err
+		}
+		p.EAN = ean
+		p.URL = url
+		p.WebsiteURL = url
+		p.WebsiteName = f.WebsiteName
+		return p, nil
+	})
 }
 
 func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
@@ -233,53 +248,52 @@ func (f openFoodFactsURL) IsURLValidForEAN(url, ean string) bool {
 
 func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
 	url := fullURL(f.URL, ean)
-	if Blacklist.Contains(url) {
-		return Product{}, NewProductError(ean, url, errBlacklisted)
-	}
-	p := Product{}
-	body, err := fetchURL(url)
-	if err != nil {
-		return Product{}, NewProductError(ean, url, err)
-	}
-	var v interface{}
-	err = json.Unmarshal(body, &v)
-	if err != nil {
-		return p, NewProductError(ean, url, err)
-	}
-
-	m := v.(map[string]interface{})
-	if status := m["status"].(float64); status != 1. {
-		// 1 == product found
-		return p, NewProductError(ean, url, errNotFound)
-	}
-	productIntf, ok := m["product"]
-	if !ok {
-		return p, NewProductError(ean, url, fmt.Errorf("no product field found in json"))
-	}
-	product, ok := productIntf.(map[string]interface{})
-	if !ok {
-		return p, NewProductError(ean, url, fmt.Errorf("no product map found in json"))
-	}
-	nameIntf, ok := product["product_name"]
-	if !ok {
-		return p, NewProductError(ean, url, fmt.Errorf("no product_name field found in json"))
-	}
-	name, ok := nameIntf.(string)
-	if !ok {
-		return p, NewProductError(ean, url, fmt.Errorf("product_name is not a string"))
-	}
-	imageURLIntf, ok := product["image_front_url"]
-	var imageURL string
-	if !ok {
-		imageURL = ""
-	} else {
-		imageURL, ok = imageURLIntf.(string)
-		if !ok {
-			return p, NewProductError(ean, url, fmt.Errorf("image_front_url is not a string"))
+	return withCheckInBlacklist(Blacklist, ean, url, func() (Product, error) {
+		p := Product{}
+		body, err := fetchURL(url)
+		if err != nil {
+			return Product{}, err
 		}
-	}
-	websiteURL := fmt.Sprintf("http://fr.openfoodfacts.org/produit/%s/", ean)
-	return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL, WebsiteURL: websiteURL, WebsiteName: f.WebsiteName}, nil
+		var v interface{}
+		err = json.Unmarshal(body, &v)
+		if err != nil {
+			return p, err
+		}
+
+		m := v.(map[string]interface{})
+		if status := m["status"].(float64); status != 1. {
+			// 1 == product found
+			return p, errNotFound
+		}
+		productIntf, ok := m["product"]
+		if !ok {
+			return p, fmt.Errorf("no product field found in json")
+		}
+		product, ok := productIntf.(map[string]interface{})
+		if !ok {
+			return p, fmt.Errorf("no product map found in json")
+		}
+		nameIntf, ok := product["product_name"]
+		if !ok {
+			return p, fmt.Errorf("no product_name field found in json")
+		}
+		name, ok := nameIntf.(string)
+		if !ok {
+			return p, fmt.Errorf("product_name is not a string")
+		}
+		imageURLIntf, ok := product["image_front_url"]
+		var imageURL string
+		if !ok {
+			imageURL = ""
+		} else {
+			imageURL, ok = imageURLIntf.(string)
+			if !ok {
+				return p, fmt.Errorf("image_front_url is not a string")
+			}
+		}
+		websiteURL := fmt.Sprintf("http://fr.openfoodfacts.org/produit/%s/", ean)
+		return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL, WebsiteURL: websiteURL, WebsiteName: f.WebsiteName}, nil
+	})
 }
 
 func (f isbnSearchURL) IsURLValidForEAN(url, ean string) bool {
@@ -288,22 +302,21 @@ func (f isbnSearchURL) IsURLValidForEAN(url, ean string) bool {
 
 func (f isbnSearchURL) Fetch(ean string) (Product, error) {
 	url := fullURL(f.URL, ean)
-	if Blacklist.Contains(url) {
-		return Product{}, NewProductError(ean, url, errBlacklisted)
-	}
-	body, err := fetchURL(url)
-	if err != nil {
-		return Product{}, NewProductError(ean, url, err)
-	}
-	p, err := f.parseBody(body)
-	if err != nil {
-		return p, NewProductError(ean, url, fmt.Errorf("could not extract data from html page"))
-	}
-	p.EAN = ean
-	p.URL = url
-	p.WebsiteURL = url
-	p.WebsiteName = f.WebsiteName
-	return p, nil
+	return withCheckInBlacklist(Blacklist, ean, url, func() (Product, error) {
+		body, err := fetchURL(url)
+		if err != nil {
+			return Product{}, err
+		}
+		p, err := f.parseBody(body)
+		if err != nil {
+			return p, fmt.Errorf("could not extract data from html page")
+		}
+		p.EAN = ean
+		p.URL = url
+		p.WebsiteURL = url
+		p.WebsiteName = f.WebsiteName
+		return p, nil
+	})
 }
 
 func (f isbnSearchURL) parseBody(b []byte) (Product, error) {
@@ -417,39 +430,43 @@ func (f amazonURL) Fetch(ean string) (Product, error) {
 	if err != nil {
 		return Product{}, NewProductError(ean, endPoint, err)
 	}
-	if Blacklist.Contains(url) {
-		return Product{}, NewProductError(ean, endPoint, errBlacklisted)
-	}
-	body, err := fetchURL(url)
-	if err != nil {
-		return Product{}, NewProductError(ean, endPoint, err)
-	}
-
-	var response amazonItemSearchResponse
-	err = xml.Unmarshal(body, &response)
-	if err != nil {
-		return Product{}, NewProductError(ean, endPoint, err)
-	}
-	if response.IsValid == "False" {
-		if len(response.Errors) == 0 {
-			return Product{}, NewProductError(ean, endPoint, fmt.Errorf("invalid response for RequestId"+response.RequestID))
+	p, err := withCheckInBlacklist(Blacklist, ean, url, func() (Product, error) {
+		body, err := fetchURL(url)
+		if err != nil {
+			return Product{}, err
 		}
-		var errors []string
-		for _, e := range response.Errors {
-			errors = append(errors, e.Error())
+
+		var response amazonItemSearchResponse
+		err = xml.Unmarshal(body, &response)
+		if err != nil {
+			return Product{}, err
 		}
-		return Product{}, NewProductError(ean, endPoint, fmt.Errorf(strings.Join(errors, "; ")))
-	}
+		if response.IsValid == "False" {
+			if len(response.Errors) == 0 {
+				return Product{}, fmt.Errorf("invalid response for RequestId" + response.RequestID)
+			}
+			var errors []string
+			for _, e := range response.Errors {
+				errors = append(errors, e.Error())
+			}
+			return Product{}, fmt.Errorf(strings.Join(errors, "; "))
+		}
 
-	if response.TotalResults == 0 {
-		return Product{}, NewProductError(ean, endPoint, errNotFound)
-	}
-	if response.TotalResults > 1 {
-		return Product{}, NewProductError(ean, endPoint, errTooManyProducts)
-	}
+		if response.TotalResults == 0 {
+			return Product{}, errNotFound
+		}
+		if response.TotalResults > 1 {
+			return Product{}, errTooManyProducts
+		}
 
-	firstItem := response.Item[0]
-	return Product{EAN: ean, URL: endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL, WebsiteURL: firstItem.DetailPageURL, WebsiteName: f.WebsiteName}, nil
+		firstItem := response.Item[0]
+		return Product{EAN: ean, URL: endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL, WebsiteURL: firstItem.DetailPageURL, WebsiteName: f.WebsiteName}, nil
+	})
+	if err != nil {
+		pErr := err.(*ProductError)
+		pErr.URL = endPoint
+	}
+	return p, err
 }
 
 type DefaultFetcher struct {

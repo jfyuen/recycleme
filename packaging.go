@@ -3,6 +3,7 @@ package recycleme
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,9 +13,11 @@ import (
 	"sync"
 )
 
+var ErrPackageNotFound = errors.New("ean not found in packages db")
+
 type Bin struct {
-	Name string
-	id   int
+	Name string `json:"name"`
+	ID   int    `json:"id"`
 }
 
 // Bins: id -> Bin
@@ -29,8 +32,8 @@ var Materials = make(map[int]Material)
 // A Material composes Packaging, different Materials go to different Bin, event ones that may be close enough
 // For example, in Paris, plastic bags go to the green bin, but plastic bottles go to the yellow bin
 type Material struct {
-	Id   int
-	Name string
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 // Packaging related to a Product
@@ -54,23 +57,27 @@ type memoryPackagesDB struct {
 	sync.RWMutex
 }
 
-func (p *memoryPackagesDB) Set(ean string, m []Material) {
+type PackagesDB interface {
+	Get(ean string) (Package, error)
+	Set(ean string, m []Material) error
+}
+
+func (p *memoryPackagesDB) Set(ean string, m []Material) error {
 	pack := Package{EAN: ean, Materials: m}
 	p.Lock()
 	p.byEAN[ean] = pack
 	p.Unlock()
+	return nil
 }
 
-func (p *memoryPackagesDB) Get(ean string) (Package, bool) {
+func (p *memoryPackagesDB) Get(ean string) (Package, error) {
 	p.RLock()
 	defer p.RUnlock()
 	v, ok := p.byEAN[ean]
-	return v, ok
-}
-
-type PackagesDB interface {
-	Get(string) (Package, bool)
-	Set(ean string, m []Material)
+	if !ok {
+		return Package{}, ErrPackageNotFound
+	}
+	return v, nil
 }
 
 func newPackages() *memoryPackagesDB {
@@ -83,13 +90,17 @@ var Packages = newPackages()
 // ProductPackage links a Product and its packages
 type ProductPackage struct {
 	Product
-	Materials []Material
+	Materials []Material `json:"materials"`
 }
 
 func NewProductPackage(p Product, db PackagesDB) (ProductPackage, error) {
 	pp := ProductPackage{Product: p}
-	if pkg, ok := db.Get(p.EAN); !ok {
-		pp.Materials = make([]Material, 0, 0)
+	if pkg, err := db.Get(p.EAN); err != nil {
+		if err == ErrPackageNotFound {
+			pp.Materials = make([]Material, 0, 0)
+			return pp, nil
+		}
+		return pp, err
 	} else {
 		pp.Materials = pkg.Materials
 	}
@@ -106,16 +117,18 @@ func (pp ProductPackage) ThrowAway() map[Bin][]Material {
 	return bins
 }
 
+type throwAwaypackage struct {
+	Product   ProductPackage        `json:"product"`
+	ThrowAway map[string][]Material `json:"throwAway"`
+}
+
 func (pp ProductPackage) ThrowAwayJSON() ([]byte, error) {
 	throwAway := pp.ThrowAway()
 	out := make(map[string][]Material)
 	for k, v := range throwAway {
 		out[k.Name] = v
 	}
-	return json.Marshal(struct {
-		Product   ProductPackage
-		ThrowAway map[string][]Material
-	}{pp, out})
+	return json.Marshal(throwAwaypackage{pp, out})
 }
 
 func readJSON(r io.Reader, logger *log.Logger) interface{} {
@@ -142,8 +155,8 @@ func LoadBinsJSON(r io.Reader, logger *log.Logger) {
 	for _, mIntf := range bins["Bins"].([]interface{}) {
 		m := mIntf.(map[string]interface{})
 		id := m["id"].(float64)
-		bin := Bin{id: int(id), Name: m["Name"].(string)}
-		Bins[bin.id] = bin
+		bin := Bin{ID: int(id), Name: m["name"].(string)}
+		Bins[bin.ID] = bin
 	}
 }
 
@@ -153,14 +166,14 @@ func LoadMaterialsJSON(r io.Reader, logger *log.Logger) {
 	for _, mIntf := range materials["Materials"].([]interface{}) {
 		m := mIntf.(map[string]interface{})
 		id := m["id"].(float64)
-		material := Material{Id: int(id), Name: m["Name"].(string)}
+		material := Material{ID: int(id), Name: m["name"].(string)}
 		binID := m["binId"].(float64)
 		bin, ok := Bins[int(binID)]
 		if !ok {
 			logger.Fatal(fmt.Errorf("binId %v not found in Bins %v", binID, Bins))
 		}
 		MaterialsToBins[material] = bin
-		Materials[material.Id] = material
+		Materials[material.ID] = material
 	}
 }
 
@@ -179,7 +192,7 @@ func LoadPackagesJSON(r io.Reader, logger *log.Logger) {
 			}
 			materials = append(materials, material)
 		}
-		ean := m["EAN"].(string)
+		ean := m["ean"].(string)
 		Packages.Set(ean, materials)
 	}
 }

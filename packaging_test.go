@@ -1,6 +1,7 @@
 package recycleme
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"strings"
@@ -11,15 +12,15 @@ var binsJSON = `{
   "Bins": [
     {
       "id": 0,
-      "Name": "Bac à couvercle vert"
+      "name": "Bac à couvercle vert"
     },
     {
       "id": 1,
-      "Name": "Bac à couvercle jaune"
+      "name": "Bac à couvercle jaune"
     },
     {
       "id": 2,
-      "Name": "Bac à couvercle blanc"
+      "name": "Bac à couvercle blanc"
     }
   ]
 }`
@@ -28,47 +29,47 @@ var materialsJSON = `{
   "Materials": [
     {
       "id": 0,
-      "Name": "Boîte carton",
+      "name": "Boîte carton",
       "binId": 1
     },
     {
       "id": 1,
-      "Name": "Film plastique",
+      "name": "Film plastique",
       "binId": 0
     },
     {
       "id": 2,
-      "Name": "Bouteille plastique",
+      "name": "Bouteille plastique",
       "binId": 1
     },
     {
       "id": 3,
-      "Name": "Bouteille de verre",
+      "name": "Bouteille de verre",
       "binId": 2
     },
     {
       "id": 4,
-      "Name": "Nourriture",
+      "name": "Nourriture",
       "binId": 0
     },
     {
       "id": 5,
-      "Name": "Bouchon de bouteille en plastique",
+      "name": "Bouchon de bouteille en plastique",
       "binId": 1
     },
     {
       "id": 6,
-      "Name": "Bouchon de bouteille en métal",
+      "name": "Bouchon de bouteille en métal",
       "binId": 1
     },
     {
       "id": 7,
-      "Name": "Kleenex",
+      "name": "Kleenex",
       "binId": 0
     },
     {
       "id": 8,
-      "Name": "Boîte plastique",
+      "name": "Boîte plastique",
       "binId": 0
     }
   ]
@@ -78,7 +79,7 @@ var packagesJSON = `{
   "Packages": [
     {
       "id": 0,
-      "EAN": "7613034383808",
+      "ean": "7613034383808",
       "materialIds": [
         0,
         1,
@@ -87,7 +88,7 @@ var packagesJSON = `{
     },
     {
       "id": 1,
-      "EAN": "5029053038896",
+      "ean": "5029053038896",
       "materialIds": [
         0,
         7
@@ -95,7 +96,7 @@ var packagesJSON = `{
     },
     {
       "id": 2,
-      "EAN": "3281780874976",
+      "ean": "3281780874976",
       "materialIds": [
         1,
         8
@@ -113,14 +114,18 @@ func init() {
 
 func TestPackage(t *testing.T) {
 	r := Package{EAN: "7613034383808", Materials: []Material{
-		Material{Id: 0, Name: "Boîte carton"},
-		Material{Id: 1, Name: "Film plastique"},
-		Material{Id: 4, Name: "Nourriture"},
+		Material{ID: 0, Name: "Boîte carton"},
+		Material{ID: 1, Name: "Film plastique"},
+		Material{ID: 4, Name: "Nourriture"},
 	}}
 
-	pkg, ok := Packages.Get(r.EAN)
-	if !ok {
-		t.Fatalf("No package found for %v", r.EAN)
+	pkg, err := Packages.Get(r.EAN)
+	if err != nil {
+		if err == ErrPackageNotFound {
+			t.Fatalf("No package found for %v", r.EAN)
+		} else {
+			t.Fatal(err)
+		}
 	}
 	if r.EAN != pkg.EAN || len(r.Materials) != len(pkg.Materials) {
 		t.Fatalf("Packages for %v differ", r.EAN)
@@ -128,7 +133,7 @@ func TestPackage(t *testing.T) {
 
 	for i, m := range r.Materials {
 		pkgMaterial := pkg.Materials[i]
-		if m.Id != pkgMaterial.Id || m.Name != pkgMaterial.Name {
+		if m.ID != pkgMaterial.ID || m.Name != pkgMaterial.Name {
 			t.Errorf("Material differ for EAN %v: %v vs %v", r.EAN, m, pkgMaterial)
 		}
 	}
@@ -149,9 +154,9 @@ func TestProductPackage(t *testing.T) {
 		t.Fatal(err)
 	}
 	materials := []Material{
-		Material{Id: 0, Name: "Boîte carton"},
-		Material{Id: 1, Name: "Film plastique"},
-		Material{Id: 4, Name: "Nourriture"}}
+		Material{ID: 0, Name: "Boîte carton"},
+		Material{ID: 1, Name: "Film plastique"},
+		Material{ID: 4, Name: "Nourriture"}}
 	if pp.Product != product {
 		t.Errorf("Some attributes are invalid for: %v; expected %v", pp, product)
 	}
@@ -161,7 +166,7 @@ func TestProductPackage(t *testing.T) {
 	}
 	for i, m := range materials {
 		pkgMaterial := pp.Materials[i]
-		if m.Id != pkgMaterial.Id || m.Name != pkgMaterial.Name {
+		if m.ID != pkgMaterial.ID || m.Name != pkgMaterial.Name {
 			t.Errorf("Material differ for EAN %v: %v vs %v", pp.EAN, m, pkgMaterial)
 		}
 	}
@@ -190,12 +195,21 @@ func TestThrowAwayJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := `{"Product":{"EAN":"7613034383808","Name":"","URL":"","ImageURL":"","WebsiteURL":"","WebsiteName":"","Materials":[{"Id":0,"Name":"Boîte carton"},{"Id":1,"Name":"Film plastique"},{"Id":4,"Name":"Nourriture"}]},"ThrowAway":{"Bac à couvercle jaune":[{"Id":0,"Name":"Boîte carton"}],"Bac à couvercle vert":[{"Id":1,"Name":"Film plastique"},{"Id":4,"Name":"Nourriture"}]}}`
+	expected, err := json.Marshal(throwAwaypackage{
+		Product: ProductPackage{
+			Product:   product,
+			Materials: []Material{Materials[0], Materials[1], Materials[4]}},
+		ThrowAway: map[string][]Material{Bins[1].Name: []Material{Materials[0]}, Bins[0].Name: []Material{Materials[1], Materials[4]}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	out, err := pkg.ThrowAwayJSON()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(out) != expected {
-		t.Errorf("ThrowAwayJson not as expected: %v != %v", string(out), expected)
+	if string(out) != string(expected) {
+		t.Errorf("ThrowAwayJson not as expected: %v != %v", string(out), string(expected))
 	}
 }

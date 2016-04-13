@@ -17,7 +17,9 @@ func TestBlacklist(t *testing.T) {
 	url := "http://www.upcitemdb.com/upc/3057640136573"
 	logger := log.New(ioutil.Discard, "", 0)
 	LoadBlacklistJSON(strings.NewReader(blacklistJSON), logger)
-	if !Blacklist.Contains(url) {
+	if ok, err := Blacklist.Contains(url); err != nil {
+		t.Fatal(err)
+	} else if !ok {
 		t.Fatalf("%v not in blacklist", url)
 	}
 	_, err := UpcItemDbFetcher.Fetch("3057640136573")

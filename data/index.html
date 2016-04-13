@@ -217,14 +217,14 @@
 
                 $.get(url, function(data) {
                     data = $.parseJSON(data)
-                    var throwAway = data.ThrowAway;
-                    product = data.Product;
-                    $(".name").text(product.Name);
-                    $(".ean").text(product.EAN);
-                    $("#image").attr("src", product.ImageURL);
+                    var throwAway = data.throwAway;
+                    product = data.product;
+                    $(".name").text(product.name);
+                    $(".ean").text(product.ean);
+                    $("#image").attr("src", product.imageURL);
                     var sourceUrl = $("#source_url");
-                    sourceUrl.attr("href", product.WebsiteURL);
-                    sourceUrl.text(product.WebsiteName);
+                    sourceUrl.attr("href", product.websiteURL);
+                    sourceUrl.text(product.websiteName);
                     $("#product").show();
 
                     if (jQuery.isEmptyObject(throwAway)) {
@@ -246,7 +246,7 @@
                             }
                             var materials = throwAway[k];
                             for (var i = 0; i < materials.length; i++) {
-                                bin.append(materials[i].Name + "<br>");
+                                bin.append(materials[i].name + "<br>");
                             }
                         }
                         $("#throwaway").show();
@@ -280,7 +280,7 @@
             if (nameVal.length == 0) {
                 blacklist.addClass("has-error");
             } else {
-                $.post("/blacklist/add", {name: nameVal, url: product.URL, ean: product.EAN, website: product.WebsiteName}, function() {
+                $.post("/blacklist/add", {name: nameVal, url: product.url, ean: product.ean, website: product.websiteName}, function() {
                     $('#blacklist_modal').modal('toggle');
                 });
             }
@@ -308,12 +308,12 @@
                     var lst = $("#materials_list");
                     lst.html("");
                     for (var k in data) {
-                        addMaterialItem(lst, k, data[k].Name);
+                        addMaterialItem(lst, k, data[k].name);
                     }
 
                     if (product != null) {
-                        for (var i = 0; i < product.Materials.length; i++) {
-                            var id = product.Materials[i].Id
+                        for (var i = 0; i < product.materials.length; i++) {
+                            var id = product.materials[i].id;
                             $("#materialId-" + id.toString()).prop("checked", true);
                         }
                     }
@@ -338,8 +338,8 @@
             if (selected.length == 0) {
                 suggest_form.addClass("has-error");
             } else {
-                 $.post("/materials/add", {materials: JSON.stringify(selected), ean: product.EAN}, function() {
-                    submitRecycleForm(product.EAN);
+                 $.post("/materials/add", {materials: JSON.stringify(selected), ean: product.ean}, function() {
+                    submitRecycleForm(product.ean);
                     $('#suggest_modal').modal('toggle');
                 });
             }

@@ -2,47 +2,47 @@
   "Materials": [
     {
       "id": 0,
-      "Name": "Boîte carton",
+      "name": "Boîte carton",
       "binId": 1
     },
     {
       "id": 1,
-      "Name": "Film plastique",
+      "name": "Film plastique",
       "binId": 0
     },
     {
       "id": 2,
-      "Name": "Bouteille plastique",
+      "name": "Bouteille plastique",
       "binId": 1
     },
     {
       "id": 3,
-      "Name": "Bouteille de verre",
+      "name": "Bouteille de verre",
       "binId": 2
     },
     {
       "id": 4,
-      "Name": "Nourriture",
+      "name": "Nourriture",
       "binId": 0
     },
     {
       "id": 5,
-      "Name": "Bouchon de bouteille en plastique",
+      "name": "Bouchon de bouteille en plastique",
       "binId": 1
     },
     {
       "id": 6,
-      "Name": "Bouchon de bouteille en métal",
+      "name": "Bouchon de bouteille en métal",
       "binId": 1
     },
     {
       "id": 7,
-      "Name": "Kleenex",
+      "name": "Kleenex",
       "binId": 0
     },
     {
       "id": 8,
-      "Name": "Boîte plastique",
+      "name": "Boîte plastique",
       "binId": 0
     }
   ]

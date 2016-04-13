@@ -2,15 +2,15 @@
   "Bins": [
     {
       "id": 0,
-      "Name": "Bac à couvercle vert"
+      "name": "Bac à couvercle vert"
     },
     {
       "id": 1,
-      "Name": "Bac à couvercle jaune"
+      "name": "Bac à couvercle jaune"
     },
     {
       "id": 2,
-      "Name": "Bac à couvercle blanc"
+      "name": "Bac à couvercle blanc"
     }
   ]
 }

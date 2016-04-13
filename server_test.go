@@ -91,7 +91,9 @@ func TestAddBlacklistHandler(t *testing.T) {
 		t.Error(m.err)
 	}
 
-	if !Blacklist.Contains(url) {
+	if ok, err := Blacklist.Contains(url); err != nil {
+		t.Fatal(err)
+	} else if !ok {
 		t.Errorf("%v not added to blacklist", url)
 	}
 
@@ -128,7 +130,7 @@ func TestThrowAwayHandler(t *testing.T) {
 	}
 
 	url := fullURL(nopFetcher.URL, ean)
-	expected := fmt.Sprintf(`{"Product":{"EAN":"%s","Name":"TEST","URL":"%s","ImageURL":"","WebsiteURL":"","WebsiteName":"%s","Materials":[]},"ThrowAway":{}}`, ean, url, nopFetcher.WebsiteName)
+	expected := fmt.Sprintf(`{"product":{"ean":"%s","name":"TEST","url":"%s","imageURL":"","websiteURL":"","websiteName":"%s","materials":[]},"throwAway":{}}`, ean, url, nopFetcher.WebsiteName)
 	if rr.Body.String() != expected {
 		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
 	}
@@ -169,7 +171,7 @@ func TestAddPackageHandler(t *testing.T) {
 	data := url.Values{}
 	ean := "5021991938818"
 	data.Set("ean", ean)
-	expectedMaterials := []Material{Material{Id: 0, Name: "m0"}, Material{Id: 1, Name: "m1"}}
+	expectedMaterials := []Material{Material{ID: 0, Name: "m0"}, Material{ID: 1, Name: "m1"}}
 	materialsJSON, err := json.Marshal(expectedMaterials)
 	if err != nil {
 		t.Fatal(err)
@@ -202,8 +204,12 @@ func TestAddPackageHandler(t *testing.T) {
 		t.Error(m.err)
 	}
 
-	if v, ok := Packages.Get(ean); !ok {
-		t.Errorf("%v not added to packages", ean)
+	if v, err := Packages.Get(ean); err != nil {
+		if err == ErrPackageNotFound {
+			t.Errorf("%v not added to packages", ean)
+		} else {
+			t.Fatal(err)
+		}
 	} else {
 		if len(v.Materials) != len(expectedMaterials) {
 			t.Errorf("expected %v packages, got %v", len(expectedMaterials), len(v.Materials))
