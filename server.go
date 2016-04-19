@@ -13,44 +13,15 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "data/index.html")
 }
 
-func BinHandler(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Path[len("/bin/"):]
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	bin, ok := Bins[id]
-	if !ok {
-		http.Error(w, fmt.Sprintf("bin id %d not found", id), http.StatusNotFound)
-		return
-	}
-	out, err := json.Marshal(bin)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	fmt.Fprintf(w, "%s", out)
-}
-
-func BinsHandler(w http.ResponseWriter, r *http.Request) {
-	tmpMap := make(map[string]Bin)
-	for id, b := range Bins {
-		idStr := strconv.Itoa(id)
-		tmpMap[idStr] = b
-	}
-	out, err := json.Marshal(tmpMap)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	fmt.Fprintf(w, "%s", out)
-}
-
-func MaterialsHandler(w http.ResponseWriter, r *http.Request) {
+func MaterialsHandler(w http.ResponseWriter, r *http.Request, db MaterialDB) {
 	tmpMap := make(map[string]Material)
-	for id, m := range Materials {
-		idStr := strconv.Itoa(id)
+	materials, err := db.GetAll()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, m := range materials {
+		idStr := strconv.FormatUint(uint64(m.ID), 10)
 		tmpMap[idStr] = m
 	}
 	out, err := json.Marshal(tmpMap)
@@ -123,9 +94,9 @@ func AddPackageHandler(db PackagesDB, w http.ResponseWriter, r *http.Request, lo
 	}()
 }
 
-func ThrowAwayHandler(db PackagesDB, w http.ResponseWriter, r *http.Request, f Fetcher) {
+func ThrowAwayHandler(db PackagesDB, blacklistDB BlacklistDB, w http.ResponseWriter, r *http.Request, f Fetcher) {
 	ean := r.URL.Path[len("/throwaway/"):]
-	product, err := f.Fetch(ean)
+	product, err := f.Fetch(ean, blacklistDB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -136,7 +107,7 @@ func ThrowAwayHandler(db PackagesDB, w http.ResponseWriter, r *http.Request, f F
 		return
 	}
 
-	jsonBytes, err := pkg.ThrowAwayJSON()
+	jsonBytes, err := pkg.ThrowAwayJSON(db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -231,7 +231,17 @@
                         $("#no_data").show();
                         $("#loading").fadeTo("fast", 0.);
                     } else {
+                        var bins = {};
                         for (var k in throwAway) {
+                            var bin = throwAway[k];
+                            if (bin in bins) {
+                                bins[bin].push(k);
+                            } else {
+                                bins[bin] = [k];
+                            }
+                        }
+
+                        for (var k in bins) {
                             var bin;
                             switch (k) {
                                 case "Bac à couvercle vert":
@@ -244,9 +254,9 @@
                                     bin = $("#white_list");
                                     break;
                             }
-                            var materials = throwAway[k];
+                            var materials = bins[k];
                             for (var i = 0; i < materials.length; i++) {
-                                bin.append(materials[i].name + "<br>");
+                                bin.append(materials[i] + "<br>");
                             }
                         }
                         $("#throwaway").show();
@@ -338,7 +348,7 @@
             if (selected.length == 0) {
                 suggest_form.addClass("has-error");
             } else {
-                 $.post("/materials/add", {materials: JSON.stringify(selected), ean: product.ean}, function() {
+                 $.post("/package/add", {materials: JSON.stringify(selected), ean: product.ean}, function() {
                     submitRecycleForm(product.ean);
                     $('#suggest_modal').modal('toggle');
                 });

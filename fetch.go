@@ -11,12 +11,13 @@ import (
 	"fmt"
 	eancheck "github.com/nicholassm/go-ean"
 	"golang.org/x/net/html"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -41,35 +42,48 @@ func (p Product) JSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-type memoryBlacklistDB struct {
-	blacklisted map[string]struct{}
-	sync.RWMutex
-}
-
-func (b *memoryBlacklistDB) Add(url string) error {
-	b.Lock()
-	b.blacklisted[url] = struct{}{}
-	b.Unlock()
-	return nil
-}
-
-func (b *memoryBlacklistDB) Contains(url string) (bool, error) {
-	b.RLock()
-	defer b.RUnlock()
-	_, ok := b.blacklisted[url]
-	return ok, nil
-}
-
 type BlacklistDB interface {
 	Contains(url string) (bool, error)
 	Add(url string) error
 }
+type mgoBlacklistDB struct {
+	mgoDB
+	blacklistColName string
+}
 
-var Blacklist = &memoryBlacklistDB{blacklisted: make(map[string]struct{})}
+func NewMgoBlacklistDB(s *mgo.Session, colPrefix string) *mgoBlacklistDB {
+	return &mgoBlacklistDB{mgoDB: mgoDB{session: s}, blacklistColName: colPrefix + "blacklist"}
+}
+
+func (db mgoBlacklistDB) Contains(url string) (bool, error) {
+	var r bool
+	err := withMgoSession(db.session, func(s *mgo.Session) error {
+		col := s.DB("").C(db.blacklistColName)
+		n, err := col.Find(bson.M{"url": url}).Count()
+		if err != nil {
+			return err
+		}
+		r = n == 1
+		return nil
+	})
+	return r, err
+}
+
+func (db mgoBlacklistDB) Add(url string) error {
+	err := withMgoSession(db.session, func(s *mgo.Session) error {
+		col := s.DB("").C(db.blacklistColName)
+		if _, err := col.Upsert(bson.M{"url": url}, bson.M{"url": url}); err != nil {
+			return err
+		}
+		return nil
+	})
+	return err
+}
 
 // Fetcher query something (URL, database, ...) with EAN, and return the Product stored or scrapped
+// It should check if the requested URL is in the blacklist
 type Fetcher interface {
-	Fetch(ean string) (Product, error)
+	Fetch(ean string, db BlacklistDB) (Product, error)
 	IsURLValidForEAN(url, ean string) bool
 }
 
@@ -161,7 +175,7 @@ func (f upcItemDbURL) IsURLValidForEAN(url, ean string) bool {
 type innerFetchFunc func() (Product, error)
 
 func withCheckInBlacklist(b BlacklistDB, ean, url string, fn innerFetchFunc) (Product, error) {
-	if ok, err := Blacklist.Contains(url); err != nil {
+	if ok, err := b.Contains(url); err != nil {
 		return Product{}, NewProductError(ean, url, err)
 	} else if ok {
 		return Product{}, NewProductError(ean, url, errBlacklisted)
@@ -174,9 +188,9 @@ func withCheckInBlacklist(b BlacklistDB, ean, url string, fn innerFetchFunc) (Pr
 	return p, nil
 }
 
-func (f upcItemDbURL) Fetch(ean string) (Product, error) {
+func (f upcItemDbURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	url := fullURL(f.URL, ean)
-	return withCheckInBlacklist(Blacklist, ean, url, func() (Product, error) {
+	return withCheckInBlacklist(db, ean, url, func() (Product, error) {
 		body, err := fetchURL(url)
 		if err != nil {
 			return Product{}, err
@@ -246,9 +260,9 @@ func (f openFoodFactsURL) IsURLValidForEAN(url, ean string) bool {
 	return fullURL(f.URL, ean) == url
 }
 
-func (f openFoodFactsURL) Fetch(ean string) (Product, error) {
+func (f openFoodFactsURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	url := fullURL(f.URL, ean)
-	return withCheckInBlacklist(Blacklist, ean, url, func() (Product, error) {
+	return withCheckInBlacklist(db, ean, url, func() (Product, error) {
 		p := Product{}
 		body, err := fetchURL(url)
 		if err != nil {
@@ -300,9 +314,9 @@ func (f isbnSearchURL) IsURLValidForEAN(url, ean string) bool {
 	return fullURL(f.URL, ean) == url
 }
 
-func (f isbnSearchURL) Fetch(ean string) (Product, error) {
+func (f isbnSearchURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	url := fullURL(f.URL, ean)
-	return withCheckInBlacklist(Blacklist, ean, url, func() (Product, error) {
+	return withCheckInBlacklist(db, ean, url, func() (Product, error) {
 		body, err := fetchURL(url)
 		if err != nil {
 			return Product{}, err
@@ -424,13 +438,13 @@ func (f amazonURL) buildURL(ean string) (string, error) {
 	return url, nil
 }
 
-func (f amazonURL) Fetch(ean string) (Product, error) {
+func (f amazonURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	url, err := f.buildURL(ean)
 	endPoint := fmt.Sprintf("%s/%s", f.endPoint, ean)
 	if err != nil {
 		return Product{}, NewProductError(ean, endPoint, err)
 	}
-	p, err := withCheckInBlacklist(Blacklist, ean, url, func() (Product, error) {
+	p, err := withCheckInBlacklist(db, ean, url, func() (Product, error) {
 		body, err := fetchURL(url)
 		if err != nil {
 			return Product{}, err
@@ -503,7 +517,7 @@ func (f DefaultFetcher) IsURLValidForEAN(url, ean string) bool {
 // Fetch a Product data bases on its EAN with default Fetchers
 // All Default Fetchers are executed in goroutines
 // Return the Product if it is found on one site (the fastest).
-func (f DefaultFetcher) Fetch(ean string) (Product, error) {
+func (f DefaultFetcher) Fetch(ean string, db BlacklistDB) (Product, error) {
 	if !eancheck.Valid(ean) {
 		return Product{}, fmt.Errorf("invalid EAN %v", ean)
 	}
@@ -516,7 +530,7 @@ func (f DefaultFetcher) Fetch(ean string) (Product, error) {
 	q := make(chan struct{})
 	for _, f := range f.fetchers {
 		go func(f Fetcher) {
-			product, err := f.Fetch(ean)
+			product, err := f.Fetch(ean, db)
 			select {
 			case <-q:
 				return

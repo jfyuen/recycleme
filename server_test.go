@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-func (f FetchableURL) Fetch(ean string) (Product, error) {
+func (f FetchableURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	return Product{Name: "TEST", URL: fullURL(f.URL, ean), WebsiteName: f.WebsiteName, EAN: ean}, nil
 }
 
@@ -71,7 +71,7 @@ func TestAddBlacklistHandler(t *testing.T) {
 	m := newMailTester(fmt.Sprintf(ean+" blacklisted"), fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.New(ioutil.Discard, "", 0)
-		AddBlacklistHandler(Blacklist, w, r, logger, nopFetcher, m.sendMail)
+		AddBlacklistHandler(blacklistDB, w, r, logger, nopFetcher, m.sendMail)
 	})
 
 	rr := httptest.NewRecorder()
@@ -91,7 +91,7 @@ func TestAddBlacklistHandler(t *testing.T) {
 		t.Error(m.err)
 	}
 
-	if ok, err := Blacklist.Contains(url); err != nil {
+	if ok, err := blacklistDB.Contains(url); err != nil {
 		t.Fatal(err)
 	} else if !ok {
 		t.Errorf("%v not added to blacklist", url)
@@ -119,7 +119,7 @@ func TestThrowAwayHandler(t *testing.T) {
 
 	nopFetcher := FetchableURL{URL: "http://www.example.com/%s/", WebsiteName: "Example.com"}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ThrowAwayHandler(Packages, w, r, nopFetcher)
+		ThrowAwayHandler(packageDB, blacklistDB, w, r, nopFetcher)
 	})
 
 	rr := httptest.NewRecorder()
@@ -142,7 +142,9 @@ func TestMaterialsHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(MaterialsHandler)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		MaterialsHandler(w, r, packageDB)
+	})
 	handler.ServeHTTP(rr, req)
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -152,15 +154,23 @@ func TestMaterialsHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out) != len(Materials) {
-		t.Fatalf("got different size %v vs %v", len(out), len(Materials))
+	materials, err := packageDB.GetAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	materialMap := make(map[uint]Material)
+	for _, m := range materials {
+		materialMap[m.ID] = m
+	}
+	if len(out) != len(materials) {
+		t.Fatalf("got different size %v vs %v", len(out), len(materials))
 	}
 	for k, v := range out {
 		id, err := strconv.Atoi(k)
 		if err != nil {
 			t.Fatal(err)
 		}
-		m := Materials[id]
+		m := materialMap[uint(id)]
 		if v.Name != m.Name {
 			t.Errorf("got different values for key %v: %v vs %v", k, v.Name, m.Name)
 		}
@@ -171,7 +181,7 @@ func TestAddPackageHandler(t *testing.T) {
 	data := url.Values{}
 	ean := "5021991938818"
 	data.Set("ean", ean)
-	expectedMaterials := []Material{Material{ID: 0, Name: "m0"}, Material{ID: 1, Name: "m1"}}
+	expectedMaterials := []Material{Material{ID: 1, Name: "Boîte carton"}, Material{ID: 2, Name: "Film plastique"}}
 	materialsJSON, err := json.Marshal(expectedMaterials)
 	if err != nil {
 		t.Fatal(err)
@@ -182,10 +192,10 @@ func TestAddPackageHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := newMailTester("Adding package for "+ean, fmt.Sprintf("Materials added to %v:\n%v", ean, "[{0 m0} {1 m1}]"))
+	m := newMailTester("Adding package for "+ean, fmt.Sprintf("Materials added to %v:\n%v", ean, "[{1 Boîte carton} {2 Film plastique}]"))
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.New(ioutil.Discard, "", 0)
-		AddPackageHandler(Packages, w, r, logger, m.sendMail)
+		AddPackageHandler(packageDB, w, r, logger, m.sendMail)
 	})
 
 	rr := httptest.NewRecorder()
@@ -204,7 +214,7 @@ func TestAddPackageHandler(t *testing.T) {
 		t.Error(m.err)
 	}
 
-	if v, err := Packages.Get(ean); err != nil {
+	if v, err := packageDB.Get(ean); err != nil {
 		if err == ErrPackageNotFound {
 			t.Errorf("%v not added to packages", ean)
 		} else {
@@ -214,6 +224,7 @@ func TestAddPackageHandler(t *testing.T) {
 		if len(v.Materials) != len(expectedMaterials) {
 			t.Errorf("expected %v packages, got %v", len(expectedMaterials), len(v.Materials))
 		}
+
 		for i := 0; i < 2; i++ {
 			got := v.Materials[i]
 			ex := expectedMaterials[i]

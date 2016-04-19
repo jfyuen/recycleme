@@ -1,18 +1,21 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/jfyuen/recycleme"
+	"gopkg.in/mgo.v2"
 	"log"
 	"net/http"
 	"os"
 	"path"
+	"time"
 )
 
 var jsonFlag = flag.Bool("json", false, "Print json export")
 var serverFlag = flag.Bool("server", false, "Run in server mode, serving json (EAN as input is useless)")
-var dirFlag = flag.String("d", "", "Directory where to load product and packaging data")
 var serverPort = flag.String("p", "8080", "Port to listen to")
 
 func init() {
@@ -23,15 +26,34 @@ func init() {
 	}
 }
 
+func NewMgoDB(url string) (*mgo.Session, error) {
+
+	if url == "" {
+		return nil, errors.New("invalid mongodb connection parameters")
+	}
+	timeout := 60 * time.Second
+	mongoSession, err := mgo.DialWithTimeout(url, timeout)
+	return mongoSession, err
+}
+
 func main() {
 	flag.Parse()
-	if (len(flag.Args()) != 1 && !*serverFlag) || (*serverFlag && len(flag.Args()) != 0) || *dirFlag == "" {
+	if (len(flag.Args()) != 1 && !*serverFlag) || (*serverFlag && len(flag.Args()) != 0) {
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	recycleme.LoadJSONFiles(*dirFlag, logger)
+
+	mongoSession, err := NewMgoDB(os.Getenv("RECYCLEME_MONGO_URI"))
+	if err != nil {
+		logger.Fatal(err)
+	}
+	defer mongoSession.Close()
+
+	packageDB := recycleme.NewMgoPackageDB(mongoSession, "")
+	blacklistDB := recycleme.NewMgoBlacklistDB(mongoSession, "")
+
 	fetcher, err := recycleme.NewDefaultFetcher()
 	if err != nil {
 		logger.Println(err.Error())
@@ -48,17 +70,17 @@ func main() {
 		} else {
 			mailHandler = emailConfig.SendMail
 		}
-		http.HandleFunc("/bin/", recycleme.BinHandler)
-		http.HandleFunc("/bins/", recycleme.BinsHandler)
-		http.HandleFunc("/materials/", recycleme.MaterialsHandler)
-		http.HandleFunc("/materials/add", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.AddPackageHandler(recycleme.Packages, w, r, logger, mailHandler)
+		http.HandleFunc("/materials/", func(w http.ResponseWriter, r *http.Request) {
+			recycleme.MaterialsHandler(w, r, packageDB)
+		})
+		http.HandleFunc("/package/add", func(w http.ResponseWriter, r *http.Request) {
+			recycleme.AddPackageHandler(packageDB, w, r, logger, mailHandler)
 		})
 		http.HandleFunc("/blacklist/add", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.AddBlacklistHandler(recycleme.Blacklist, w, r, logger, fetcher, mailHandler)
+			recycleme.AddBlacklistHandler(blacklistDB, w, r, logger, fetcher, mailHandler)
 		})
 		http.HandleFunc("/throwaway/", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.ThrowAwayHandler(recycleme.Packages, w, r, fetcher)
+			recycleme.ThrowAwayHandler(packageDB, blacklistDB, w, r, fetcher)
 		})
 		http.HandleFunc("/", recycleme.HomeHandler)
 
@@ -71,23 +93,26 @@ func main() {
 			logger.Fatalln(err)
 		}
 	} else {
-		product, err := fetcher.Fetch(flag.Arg(0))
+		product, err := fetcher.Fetch(flag.Arg(0), blacklistDB)
 		if err != nil {
 			logger.Fatalln(err)
 		}
-		pkg, err := recycleme.NewProductPackage(product, recycleme.Packages)
+		pkg, err := recycleme.NewProductPackage(product, packageDB)
 		if err != nil {
 			logger.Fatalln(err)
 		}
-
+		throwaway, err := pkg.ThrowAway(packageDB)
+		if err != nil {
+			logger.Fatalln(err)
+		}
 		if *jsonFlag {
-			jsonBytes, err := pkg.ThrowAwayJSON()
+			jsonBytes, err := json.Marshal(throwaway)
 			if err != nil {
 				logger.Fatalln(err)
 			}
 			logger.Println(string(jsonBytes))
 		} else {
-			logger.Println(pkg.ThrowAway())
+			logger.Println(throwaway)
 		}
 	}
 }

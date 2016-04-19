@@ -1,39 +1,26 @@
 package recycleme
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"log"
-	"os"
-	"path"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"strings"
-	"sync"
 )
 
 var ErrPackageNotFound = errors.New("ean not found in packages db")
 
 type Bin struct {
-	Name string `json:"name"`
-	ID   int    `json:"id"`
+	Name string `json:"name" bson:"name"`
+	ID   uint   `json:"id" bson:"_id,omitempty"`
 }
-
-// Bins: id -> Bin
-var Bins = make(map[int]Bin)
-
-// MaterialsToBins: Material -> Bin, only for Paris (France) at the moment
-var MaterialsToBins = make(map[Material]Bin)
-
-// Materials: id -> Material
-var Materials = make(map[int]Material)
 
 // A Material composes Packaging, different Materials go to different Bin, event ones that may be close enough
 // For example, in Paris, plastic bags go to the green bin, but plastic bottles go to the yellow bin
 type Material struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID   uint   `json:"id" bson:"_id,omitempty"`
+	Name string `json:"name" bson:"name"`
 }
 
 // Packaging related to a Product
@@ -52,170 +39,173 @@ func (p Package) String() string {
 	return fmt.Sprintf("Product %v is composed of %v", p.EAN, strings.Join(s, ", "))
 }
 
-type memoryPackagesDB struct {
-	byEAN map[string]Package
-	sync.RWMutex
-}
-
 type PackagesDB interface {
 	Get(ean string) (Package, error)
+	GetBins([]Material) (map[Material]Bin, error)
 	Set(ean string, m []Material) error
 }
 
-func (p *memoryPackagesDB) Set(ean string, m []Material) error {
-	pack := Package{EAN: ean, Materials: m}
-	p.Lock()
-	p.byEAN[ean] = pack
-	p.Unlock()
-	return nil
+func withMgoSession(s *mgo.Session, fn func(s *mgo.Session) error) error {
+	session := s.Copy()
+	defer session.Close()
+	return fn(s)
 }
 
-func (p *memoryPackagesDB) Get(ean string) (Package, error) {
-	p.RLock()
-	defer p.RUnlock()
-	v, ok := p.byEAN[ean]
-	if !ok {
-		return Package{}, ErrPackageNotFound
+type mgoDB struct {
+	session *mgo.Session
+}
+type MaterialDB interface {
+	GetAll() ([]Material, error)
+}
+
+func (db mgoPackagesDB) GetAll() ([]Material, error) {
+	var m []Material
+	err := withMgoSession(db.session, func(s *mgo.Session) error {
+		db := s.DB("")
+		collection := db.C("materials")
+		if err := collection.Find(nil).All(&m); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	return m, err
+}
+
+type mgoPackagesDB struct {
+	mgoDB
+	packagesColName, materialsColName, binsColName, materialsToBinsColName string
+}
+
+type mgoPackageItem struct {
+	EAN         string `json:"ean" bson:"ean"`
+	MaterialIDs []uint `json:"material_ids" bson:"material_ids"`
+}
+
+func NewMgoPackageDB(s *mgo.Session, colPrefix string) *mgoPackagesDB {
+	return &mgoPackagesDB{mgoDB: mgoDB{session: s},
+		packagesColName:        colPrefix + "packages",
+		materialsColName:       colPrefix + "materials",
+		binsColName:            colPrefix + "bins",
+		materialsToBinsColName: colPrefix + "materials_to_bins",
 	}
-	return v, nil
 }
 
-func newPackages() *memoryPackagesDB {
-	return &memoryPackagesDB{byEAN: make(map[string]Package)}
+func (db mgoPackagesDB) Get(ean string) (Package, error) {
+	p := Package{EAN: ean}
+	err := withMgoSession(db.session, func(s *mgo.Session) error {
+		db_ := s.DB("")
+		collection := db_.C(db.packagesColName)
+		item := mgoPackageItem{}
+		if err := collection.Find(bson.M{"ean": ean}).One(&item); err != nil {
+			if err == mgo.ErrNotFound {
+				return ErrPackageNotFound
+			}
+			return err
+		}
+		materialsCol := db_.C(db.materialsColName)
+		req := bson.M{"_id": bson.M{"$in": item.MaterialIDs}}
+		if err := materialsCol.Find(req).All(&p.Materials); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	return p, err
 }
 
-// Packages indexes Package by EAN
-var Packages = newPackages()
+func (db mgoPackagesDB) Set(ean string, m []Material) error {
+	return withMgoSession(db.session, func(s *mgo.Session) error {
+		item := mgoPackageItem{EAN: ean}
+		for _, material := range m {
+			item.MaterialIDs = append(item.MaterialIDs, material.ID)
+		}
+		collection := s.DB("").C(db.packagesColName)
+		if _, err := collection.Upsert(bson.M{"ean": ean}, item); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (db mgoPackagesDB) GetBins(m []Material) (map[Material]Bin, error) {
+	r := make(map[Material]Bin)
+	return r, withMgoSession(db.session, func(s *mgo.Session) error {
+		mIDs := make([]uint, len(m), len(m))
+		mIDMap := make(map[uint]Material)
+		for _, material := range m {
+			mIDs = append(mIDs, material.ID)
+			mIDMap[material.ID] = material
+		}
+		collection := s.DB("").C(db.materialsToBinsColName)
+		var mIDsToBinIDs []struct {
+			MaterialID uint `bson:"material_id"`
+			BinID      uint `bson:"bin_id"`
+		}
+		if err := collection.Find(bson.M{"material_id": bson.M{"$in": mIDs}}).All(&mIDsToBinIDs); err != nil {
+			return err
+		}
+		var binIDs []uint
+		for _, mb := range mIDsToBinIDs {
+			binIDs = append(binIDs, mb.BinID)
+		}
+		collection = s.DB("").C(db.binsColName)
+		var bins []Bin
+		if err := collection.Find(bson.M{"_id": bson.M{"$in": binIDs}}).All(&bins); err != nil {
+			return err
+		}
+
+		binMap := make(map[uint]Bin)
+		for _, b := range bins {
+			binMap[b.ID] = b
+		}
+
+		for _, mIDToBinID := range mIDsToBinIDs {
+			material := mIDMap[mIDToBinID.MaterialID]
+			r[material] = binMap[mIDToBinID.BinID]
+		}
+
+		return nil
+	})
+}
 
 // ProductPackage links a Product and its packages
 type ProductPackage struct {
-	Product
+	Product   `json:",inline"`
 	Materials []Material `json:"materials"`
 }
 
 func NewProductPackage(p Product, db PackagesDB) (ProductPackage, error) {
 	pp := ProductPackage{Product: p}
-	if pkg, err := db.Get(p.EAN); err != nil {
+	pkg, err := db.Get(p.EAN)
+	if err != nil {
 		if err == ErrPackageNotFound {
 			pp.Materials = make([]Material, 0, 0)
 			return pp, nil
 		}
 		return pp, err
-	} else {
-		pp.Materials = pkg.Materials
 	}
+	pp.Materials = pkg.Materials
 	return pp, nil
 }
 
-func (pp ProductPackage) ThrowAway() map[Bin][]Material {
-	bins := make(map[Bin][]Material)
-	for _, m := range pp.Materials {
-		bin := MaterialsToBins[m]
-		lst := bins[bin]
-		bins[bin] = append(lst, m)
-	}
-	return bins
+func (pp ProductPackage) ThrowAway(db PackagesDB) (map[Material]Bin, error) {
+	return db.GetBins(pp.Materials)
 }
 
 type throwAwaypackage struct {
-	Product   ProductPackage        `json:"product"`
-	ThrowAway map[string][]Material `json:"throwAway"`
+	Product   ProductPackage    `json:"product"`
+	ThrowAway map[string]string `json:"throwAway"`
 }
 
-func (pp ProductPackage) ThrowAwayJSON() ([]byte, error) {
-	throwAway := pp.ThrowAway()
-	out := make(map[string][]Material)
+func (pp ProductPackage) ThrowAwayJSON(db PackagesDB) ([]byte, error) {
+	throwAway, err := pp.ThrowAway(db)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string)
 	for k, v := range throwAway {
-		out[k.Name] = v
+		out[k.Name] = v.Name
 	}
 	return json.Marshal(throwAwaypackage{pp, out})
-}
-
-func readJSON(r io.Reader, logger *log.Logger) interface{} {
-	var data interface{}
-	var buf bytes.Buffer
-	n, err := buf.ReadFrom(r)
-	if n == 0 {
-		logger.Fatal(fmt.Errorf("nothing was read from Reader"))
-	}
-
-	if err != nil {
-		logger.Fatal(err)
-	}
-	err = json.Unmarshal(buf.Bytes(), &data)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	return data
-}
-
-func LoadBinsJSON(r io.Reader, logger *log.Logger) {
-	jsonBins := readJSON(r, logger)
-	bins := jsonBins.(map[string]interface{})
-	for _, mIntf := range bins["Bins"].([]interface{}) {
-		m := mIntf.(map[string]interface{})
-		id := m["id"].(float64)
-		bin := Bin{ID: int(id), Name: m["name"].(string)}
-		Bins[bin.ID] = bin
-	}
-}
-
-func LoadMaterialsJSON(r io.Reader, logger *log.Logger) {
-	jsonMaterials := readJSON(r, logger)
-	materials := jsonMaterials.(map[string]interface{})
-	for _, mIntf := range materials["Materials"].([]interface{}) {
-		m := mIntf.(map[string]interface{})
-		id := m["id"].(float64)
-		material := Material{ID: int(id), Name: m["name"].(string)}
-		binID := m["binId"].(float64)
-		bin, ok := Bins[int(binID)]
-		if !ok {
-			logger.Fatal(fmt.Errorf("binId %v not found in Bins %v", binID, Bins))
-		}
-		MaterialsToBins[material] = bin
-		Materials[material.ID] = material
-	}
-}
-
-func LoadPackagesJSON(r io.Reader, logger *log.Logger) {
-	jsonMaterials := readJSON(r, logger)
-	materials := jsonMaterials.(map[string]interface{})
-	for _, mIntf := range materials["Packages"].([]interface{}) {
-		m := mIntf.(map[string]interface{})
-		materialsIds := m["materialIds"].([]interface{})
-		var materials []Material
-		for i := range materialsIds {
-			materialID := int(materialsIds[i].(float64))
-			material, ok := Materials[materialID]
-			if !ok {
-				logger.Fatal(fmt.Errorf("materialId %v not found in Materials %v", materialID, Materials))
-			}
-			materials = append(materials, material)
-		}
-		ean := m["ean"].(string)
-		Packages.Set(ean, materials)
-	}
-}
-
-func LoadBlacklistJSON(r io.Reader, logger *log.Logger) {
-	jsonBlacklist := readJSON(r, logger)
-	blacklist := jsonBlacklist.(map[string]interface{})
-	for _, url := range blacklist["Blacklist"].([]interface{}) {
-		Blacklist.Add(url.(string))
-	}
-
-}
-
-func LoadJSONFiles(dir string, logger *log.Logger) {
-	files := []string{"bins.json", "materials.json", "packages.json", "blacklist.json"}
-	funcs := []func(io.Reader, *log.Logger){LoadBinsJSON, LoadMaterialsJSON, LoadPackagesJSON, LoadBlacklistJSON}
-	for i, filename := range files {
-		path := path.Join(dir, filename)
-		f, err := os.Open(path)
-		if err != nil {
-			logger.Fatal(err)
-		}
-		defer f.Close()
-		funcs[i](f, logger)
-	}
 }

@@ -69,13 +69,13 @@ Replace `${DATADIR}` with the path to json directory.
 For example:
 
 ```bash
-$ recycleme -d ${DATADIR} 7613034383808
+$ recycleme 7613034383808
 map[{Bac à couvercle jaune 1}:[{0 Boîte carton}] {Bac à couvercle vert 0}:[{1 Film plastique} {4 Nourriture}]]
 ```
 
 For json:
 ```bash
-$ recycleme -d ${DATADIR} -json 7613034383808
+$ recycleme -json 7613034383808
 {"Bac à couvercle jaune":[{"Name":"Boîte carton"}],"Bac à couvercle vert":[{"Name":"Film plastique"},{"Name":"Nourriture"}]}
 ```
 

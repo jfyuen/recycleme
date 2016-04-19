@@ -1,28 +1,20 @@
 package recycleme
 
 import (
-	"io/ioutil"
-	"log"
-	"strings"
 	"testing"
 )
 
-var blacklistJSON = `{
-  "Blacklist": [
-    "http://www.upcitemdb.com/upc/3057640136573"
-  ]
-}`
-
 func TestBlacklist(t *testing.T) {
 	url := "http://www.upcitemdb.com/upc/3057640136573"
-	logger := log.New(ioutil.Discard, "", 0)
-	LoadBlacklistJSON(strings.NewReader(blacklistJSON), logger)
-	if ok, err := Blacklist.Contains(url); err != nil {
+	if err := blacklistDB.Add(url); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := blacklistDB.Contains(url); err != nil {
 		t.Fatal(err)
 	} else if !ok {
 		t.Fatalf("%v not in blacklist", url)
 	}
-	_, err := UpcItemDbFetcher.Fetch("3057640136573")
+	_, err := UpcItemDbFetcher.Fetch("3057640136573", blacklistDB)
 	if err == nil {
 		t.Fatalf("%v not blacklisted", url)
 	}
@@ -38,13 +30,13 @@ func TestAmazonFetcher(t *testing.T) {
 		t.Log("Missing either AccessKey, SecretKey or AssociateTag. AmazonFetcher will not be tested")
 		return
 	}
-	_, err = amazonFetcher.Fetch("4006381333634")
+	_, err = amazonFetcher.Fetch("4006381333634", blacklistDB)
 	if err != nil {
 		if err.(*ProductError).err != errTooManyProducts {
 			t.Fatal(err)
 		}
 	}
-	p, err := amazonFetcher.Fetch("5021991938818")
+	p, err := amazonFetcher.Fetch("5021991938818", blacklistDB)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +50,7 @@ func TestAmazonFetcher(t *testing.T) {
 }
 
 func TestDefaultFetchers(t *testing.T) {
-	p, err := UpcItemDbFetcher.Fetch("5029053038896")
+	p, err := UpcItemDbFetcher.Fetch("5029053038896", blacklistDB)
 	if err != nil {
 		t.Error(err)
 	} else if p.Name != "Kleenex tissues in a Christmas House box" ||
@@ -69,7 +61,7 @@ func TestDefaultFetchers(t *testing.T) {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 
-	p, err = UpcItemDbFetcher.Fetch("4006381333634")
+	p, err = UpcItemDbFetcher.Fetch("4006381333634", blacklistDB)
 	if err != nil {
 		t.Error(err)
 	} else if p.Name != "Stabilo Boss Original Highlighter Blue" ||
@@ -80,7 +72,7 @@ func TestDefaultFetchers(t *testing.T) {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 
-	p, err = OpenFoodFactsFetcher.Fetch("7613034383808")
+	p, err = OpenFoodFactsFetcher.Fetch("7613034383808", blacklistDB)
 	if err != nil {
 		t.Error(err)
 	} else if p.Name != "Four à Pierre Royale" || p.EAN != "7613034383808" ||
@@ -90,7 +82,7 @@ func TestDefaultFetchers(t *testing.T) {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 
-	p, err = IsbnSearchFetcher.Fetch("9782501104265")
+	p, err = IsbnSearchFetcher.Fetch("9782501104265", blacklistDB)
 	if err != nil {
 		t.Error(err)
 	} else if p.Name != "le rugby c'est pas sorcier" || p.EAN != "9782501104265" ||
@@ -103,17 +95,17 @@ func TestDefaultFetchers(t *testing.T) {
 
 func TestDefaultFetcher(t *testing.T) {
 	fetcher, _ := NewDefaultFetcher()
-	_, err := fetcher.Fetch("5029053038896")
+	_, err := fetcher.Fetch("5029053038896", blacklistDB)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = fetcher.Fetch("7613034383808")
+	_, err = fetcher.Fetch("7613034383808", blacklistDB)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = fetcher.Fetch("7640140337517")
+	_, err = fetcher.Fetch("7640140337517", blacklistDB)
 	if err == nil {
 		t.Fatal(err)
 	}
