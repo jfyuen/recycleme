@@ -33,6 +33,7 @@ Contributions are welcomed to support more websites or databases.
 
 The website is supported and hosted on http://www.howtorecycle.me.
 It features a minimal database with product and scrapping/link to some websites.
+The database to connect to is set up with the `RECYCLEME_MONGO_URI` environment variable.
 
 The following environment variables are necessary to receive mails from the app:
 - RECYCLEME_MAIL_HOST
@@ -43,28 +44,31 @@ The following environment variables are necessary to receive mails from the app:
 
 ## Heroku deployment
 
-The app itself is "heroku" ready. Just deploy it directly:
+The app itself is "heroku" ready. Just deploy it directly after setting up the database environment variable:
 ```bash
 $ heroku login
 $ heroku create
 $ heroku push heroku master
 $ heroku open
 ```
+Mongolab service may be used for the database.
 
+ 
 ## Run in server mode
 
 ```bash
-$ recycleme -d ${DATADIR} -server
+$ recycleme -server
 ```
-Replace `${DATADIR}` with the path to json directory (no database at the moment). It will listen on port 8080 by default.
-
+It will connect to the database specified in the `RECYCLEME_MONGO_URI` environment variable.
+The server listens on port 8080 by default. A port can be specified with the `-p` flag.
 
 ## Command line tool
 
+The command line tool also need a database set up.
+
 ```bash
-$ recycleme -d ${DATADIR} $EAN
+$ recycleme $EAN
 ```
-Replace `${DATADIR}` with the path to json directory.
 
 For example:
 
@@ -79,12 +83,11 @@ $ recycleme -json 7613034383808
 {"Bac à couvercle jaune":[{"Name":"Boîte carton"}],"Bac à couvercle vert":[{"Name":"Film plastique"},{"Name":"Nourriture"}]}
 ```
 
+## Tests
+Tests also need a mongodb database, it is specified by the `RECYCLEME_MONGO_TEST_URI` environment variable.
 
 ## Roadmap/TODO
 
-- Allow saving data
-- Migrate to a database
-- Add/update materials and products API and web site
 - Add link to legal regulations in the country
 - Add geoloc information/data as to where to find a type of product. i.e batteries, lamps, ... if the bin is not available in the building or locally, depending on country or location.
 - Support more countries/regions
