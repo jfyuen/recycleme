@@ -3,7 +3,8 @@
 	"GoVersion": "go1.6",
 	"GodepVersion": "v62",
 	"Packages": [
-		"./..."
+		".",
+		"./cmd/recycleme/"
 	],
 	"Deps": [
 		{
