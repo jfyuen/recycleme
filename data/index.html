@@ -303,13 +303,14 @@
             $.get(url, function(data) {
                 data = $.parseJSON(data)
 
-                if (jQuery.isEmptyObject(data)) {
+                if (data.length == 0) {
                     $("#suggest_help").text("Pas d'emballage disponible");
                 } else {
                     var lst = $("#materials_list");
                     lst.html("");
-                    for (var k in data) {
-                        addMaterialItem(lst, k, data[k].name);
+                    for (var i = 0; i < data.length; i++) {
+                        var v = data[i]
+                        addMaterialItem(lst, v.id, v.name);
                     }
 
                     if (product != null) {

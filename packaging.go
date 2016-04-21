@@ -64,7 +64,7 @@ func (db mgoPackagesDB) GetAll() ([]Material, error) {
 	err := withMgoSession(db.session, func(s *mgo.Session) error {
 		db := s.DB("")
 		collection := db.C("materials")
-		if err := collection.Find(nil).All(&m); err != nil {
+		if err := collection.Find(nil).Sort("+name").All(&m); err != nil {
 			return err
 		}
 

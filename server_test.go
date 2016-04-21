@@ -149,7 +149,7 @@ func TestMaterialsHandler(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
-	var out map[string]Material
+	var out []Material
 	err = json.Unmarshal(rr.Body.Bytes(), &out)
 	if err != nil {
 		t.Fatal(err)
@@ -158,21 +158,13 @@ func TestMaterialsHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	materialMap := make(map[uint]Material)
-	for _, m := range materials {
-		materialMap[m.ID] = m
-	}
 	if len(out) != len(materials) {
 		t.Fatalf("got different size %v vs %v", len(out), len(materials))
 	}
-	for k, v := range out {
-		id, err := strconv.Atoi(k)
-		if err != nil {
-			t.Fatal(err)
-		}
-		m := materialMap[uint(id)]
-		if v.Name != m.Name {
-			t.Errorf("got different values for key %v: %v vs %v", k, v.Name, m.Name)
+	for i, v := range out {
+		expected := materials[i]
+		if v.Name != expected.Name || v.ID != expected.ID {
+			t.Errorf("got material %v, expected %v", v.Name, expected.Name)
 		}
 	}
 }

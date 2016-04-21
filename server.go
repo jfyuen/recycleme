@@ -6,7 +6,6 @@ import (
 	eancheck "github.com/nicholassm/go-ean"
 	"log"
 	"net/http"
-	"strconv"
 )
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
@@ -14,17 +13,12 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func MaterialsHandler(w http.ResponseWriter, r *http.Request, db MaterialDB) {
-	tmpMap := make(map[string]Material)
 	materials, err := db.GetAll()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	for _, m := range materials {
-		idStr := strconv.FormatUint(uint64(m.ID), 10)
-		tmpMap[idStr] = m
-	}
-	out, err := json.Marshal(tmpMap)
+	out, err := json.Marshal(materials)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
