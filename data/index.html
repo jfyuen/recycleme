@@ -100,18 +100,7 @@
 </section>
 
 <section class="container-fluid collapse" id="throwaway">
-    <div class="col-sm-4 text-center" id="green_bin">
-        <h3 style="color:green">Bac à couvercle vert</h3>
-        <div id="green_list"></div>
-    </div>
-    <div class="col-sm-4 text-center" id="yellow_bin">
-        <h3 style="color:orange">Bac à couvercle jaune</h3>
-        <div id="yellow_list"></div>
-    </div>
-    <div class="col-sm-4 text-center" id="white_bin">
-        <h3>Bac à couvercle blanc</h3>
-        <div id="white_list"></div>
-    </div>
+    <div class="row" id="bins"></div>
     <div class="text-center col-sm-12">
         <button type="button" class="btn btn-info btn-default suggest_button" data-toggle="modal" data-target="#suggest_modal">Modifier un emballage</button>
     </div>
@@ -193,9 +182,7 @@
             $(".ean").empty();
             $("#image").src = "";
             $("#throwaway").hide();
-            $("#green_list").empty();
-            $("#yellow_list").empty();
-            $("#white_list").empty();
+            $("#bins").empty()
             $("#source_url").empty();
         }
 
@@ -231,8 +218,10 @@
                         $("#no_data").show();
                         $("#loading").fadeTo("fast", 0.);
                     } else {
+                        var binCount = 0;
                         var bins = {};
                         for (var k in throwAway) {
+                            binCount++;
                             var bin = throwAway[k];
                             if (bin in bins) {
                                 bins[bin].push(k);
@@ -241,23 +230,19 @@
                             }
                         }
 
+                        var binDiv = $("#bins");
+                        binDiv.empty();
+                        var binCls = "col-sm-" + parseInt(12 / binCount);
+
+                        var binId = 0;
                         for (var k in bins) {
-                            var bin;
-                            switch (k) {
-                                case "Bac à couvercle vert":
-                                    bin = $("#green_list");
-                                    break;
-                                case "Bac à couvercle jaune":
-                                    bin = $("#yellow_list");
-                                    break;
-                                case "Bac à couvercle blanc":
-                                    bin = $("#white_list");
-                                    break;
-                            }
+                            binDiv.append('<div class="' + binCls + ' text-center"><h3>' + k + '</h3><div id="bin-' + parseInt(binId) + '"></div></div>');
+                            var bin = $("#bin-" + parseInt(binId));
                             var materials = bins[k];
                             for (var i = 0; i < materials.length; i++) {
                                 bin.append(materials[i] + "<br>");
                             }
+                            binId++;
                         }
                         $("#throwaway").show();
                         $("#loading").fadeTo("fast", 0.);
