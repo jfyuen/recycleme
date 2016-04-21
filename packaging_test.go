@@ -302,6 +302,10 @@ func TestPackageDBSet(t *testing.T) {
 	}
 
 	ean := "9771674821123"
+	if err := packageDB.Set(ean, nil); err == nil {
+		t.Error("must not be able to add empty materials to a package")
+	}
+
 	m1 := Material{ID: 1, Name: "Boîte carton"}
 	m2 := Material{ID: 2, Name: "Film plastique"}
 	materials := []Material{m1, m1, m1, m2}

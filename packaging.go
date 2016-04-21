@@ -119,6 +119,9 @@ func (db mgoPackagesDB) Set(ean string, m []Material) error {
 	if !eancheck.Valid(ean) {
 		return errInvalidEAN
 	}
+	if len(m) == 0 {
+		return errors.New("no materials to add")
+	}
 	return withMgoSession(db.session, func(s *mgo.Session) error {
 		item := mgoPackageItem{EAN: ean}
 		materialIDSet := make(map[uint]struct{})
