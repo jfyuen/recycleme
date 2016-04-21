@@ -519,7 +519,8 @@ func (f DefaultFetcher) IsURLValidForEAN(url, ean string) bool {
 // Return the Product if it is found on one site (the fastest).
 func (f DefaultFetcher) Fetch(ean string, db BlacklistDB) (Product, error) {
 	if !eancheck.Valid(ean) {
-		return Product{}, fmt.Errorf("invalid EAN %v", ean)
+		return Product{}, errInvalidEAN
+
 	}
 	type prodErr struct {
 		p   Product

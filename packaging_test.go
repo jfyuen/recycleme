@@ -295,6 +295,12 @@ func TestThrowAwayJSON(t *testing.T) {
 }
 
 func TestPacakgeDBSet(t *testing.T) {
+	if err := packageDB.Set("invalid", nil); err == nil {
+		t.Error("ean should have been checked")
+	} else if err != errInvalidEAN {
+		t.Error(err)
+	}
+
 	ean := "9771674821123"
 	m1 := Material{ID: 1, Name: "Boîte carton"}
 	m2 := Material{ID: 2, Name: "Film plastique"}

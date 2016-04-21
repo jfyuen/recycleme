@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	eancheck "github.com/nicholassm/go-ean"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"strings"
@@ -115,6 +116,9 @@ func (db mgoPackagesDB) Get(ean string) (Package, error) {
 }
 
 func (db mgoPackagesDB) Set(ean string, m []Material) error {
+	if !eancheck.Valid(ean) {
+		return errInvalidEAN
+	}
 	return withMgoSession(db.session, func(s *mgo.Session) error {
 		item := mgoPackageItem{EAN: ean}
 		materialIDSet := make(map[uint]struct{})
