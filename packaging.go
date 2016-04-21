@@ -117,7 +117,12 @@ func (db mgoPackagesDB) Get(ean string) (Package, error) {
 func (db mgoPackagesDB) Set(ean string, m []Material) error {
 	return withMgoSession(db.session, func(s *mgo.Session) error {
 		item := mgoPackageItem{EAN: ean}
+		materialIDSet := make(map[uint]struct{})
 		for _, material := range m {
+			if _, ok := materialIDSet[material.ID]; ok {
+				continue
+			}
+			materialIDSet[material.ID] = struct{}{}
 			item.MaterialIDs = append(item.MaterialIDs, material.ID)
 		}
 		collection := s.DB("").C(db.packagesColName)

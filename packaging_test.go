@@ -294,6 +294,34 @@ func TestThrowAwayJSON(t *testing.T) {
 	}
 }
 
+func TestPacakgeDBSet(t *testing.T) {
+	ean := "9771674821123"
+	m1 := Material{ID: 1, Name: "Boîte carton"}
+	m2 := Material{ID: 2, Name: "Film plastique"}
+	materials := []Material{m1, m1, m1, m2}
+	if err := packageDB.Set(ean, materials); err != nil {
+		t.Fatal(err)
+	}
+	pkg, err := packageDB.Get(ean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := 2
+	if len(pkg.Materials) != expected {
+		t.Errorf("Expected %v unique material, got %v", expected, len(pkg.Materials))
+	}
+	seenMaterials := make(map[uint]struct{}, 2)
+	for _, m := range pkg.Materials {
+		if _, ok := seenMaterials[m.ID]; ok {
+			t.Errorf("material %v already seen once", m)
+		}
+		if m != m2 && m != m1 {
+			t.Errorf("got %v expected %v or %v", m, m1, m2)
+		}
+		seenMaterials[m.ID] = struct{}{}
+	}
+}
+
 var packageDB *mgoPackagesDB
 var blacklistDB *mgoBlacklistDB
 
