@@ -89,22 +89,28 @@
 
 <section class="container-fluid collapse text-center" id="product">
     <h2 class="name"></h2>
-    <img src="" id="image">
-    <div class="source">Source: <a href="" id="source_url" target="_blank"></a></div>
-    <button type="button" class="btn btn-info btn-default" data-toggle="modal" data-target="#blacklist_modal">Pas le bon produit ?</button>
-</section>
+    <div class="row">
+        <div class="col-sm-4 col-sm-offset-2">
+            <img src="" id="image">
+            <div class="source">Source: <a href="" id="source_url" target="_blank"></a></div>
+            <button type="button" class="btn btn-warning" data-toggle="modal" data-target="#blacklist_modal">Pas le bon produit ?</button>
+        </div>
+        <div class="col-sm-4">
+            <div class="collapse text-center" id="no_data">
+                <h3>Aucune information d'emballage trouvée</h3>
+                <button type="button" class="btn btn-warning suggest_button" data-toggle="modal" data-target="#suggest_modal">Suggérer un emballage</button>
+            </div>
 
-<section class="container-fluid collapse text-center" id="no_data">
-    <h3>Aucune information d'emballage trouvée</h3>
-    <button type="button" class="btn btn-info btn-default suggest_button" data-toggle="modal" data-target="#suggest_modal">Suggérer un emballage</button>
-</section>
-
-<section class="container-fluid collapse" id="throwaway">
-    <div class="row" id="bins"></div>
-    <div class="text-center col-sm-12">
-        <button type="button" class="btn btn-info btn-default suggest_button" data-toggle="modal" data-target="#suggest_modal">Modifier un emballage</button>
+            <div class="text-center collapse" id="throwaway">
+                <div id="bins"></div>
+                <div class="text-center">
+                    <button type="button" class="btn btn-default suggest_button" data-toggle="modal" data-target="#suggest_modal">Modifier un emballage</button>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
+
 
 <!-- Blacklist Modal -->
 <div class="modal fade" id="blacklist_modal" role="dialog">
@@ -143,7 +149,7 @@
             <div class="modal-body">
                 <div id="suggest_help"></div>
                 <form role="form" class="form-group" id="suggest_form">
-                    <div id="materials_list" class="row">
+                    <div id="materials_list" class="row text-left">
                     </div>
                     <button type="submit" class="btn btn-primary">
                         Suggérer
@@ -236,7 +242,7 @@
 
                         var binId = 0;
                         for (var k in bins) {
-                            binDiv.append('<div class="' + binCls + ' text-center"><h3>' + k + '</h3><div id="bin-' + parseInt(binId) + '"></div></div>');
+                            binDiv.append('<div class="text-center"><h3>' + k + '</h3><div id="bin-' + parseInt(binId) + '"></div></div>');
                             var bin = $("#bin-" + parseInt(binId));
                             var materials = bins[k];
                             for (var i = 0; i < materials.length; i++) {
