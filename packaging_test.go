@@ -294,7 +294,7 @@ func TestThrowAwayJSON(t *testing.T) {
 	}
 }
 
-func TestPacakgeDBSet(t *testing.T) {
+func TestPackageDBSet(t *testing.T) {
 	if err := packageDB.Set("invalid", nil); err == nil {
 		t.Error("ean should have been checked")
 	} else if err != errInvalidEAN {
