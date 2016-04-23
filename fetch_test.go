@@ -18,7 +18,7 @@ func TestBlacklist(t *testing.T) {
 	if err == nil {
 		t.Fatalf("%v not blacklisted", url)
 	}
-	if err.(*ProductError).err != errBlacklisted {
+	if err.(*productError).err != errBlacklisted {
 		t.Fatalf("not a blacklist error: %v", err)
 	}
 }
@@ -32,7 +32,7 @@ func TestAmazonFetcher(t *testing.T) {
 	}
 	_, err = amazonFetcher.Fetch("4006381333634", blacklistDB)
 	if err != nil {
-		if err.(*ProductError).err != errTooManyProducts {
+		if err.(*productError).err != errTooManyProducts {
 			t.Fatal(err)
 		}
 	}

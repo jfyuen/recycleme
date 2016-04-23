@@ -198,7 +198,7 @@ func TestPackage(t *testing.T) {
 
 	pkg, err := packageDB.Get(r.EAN)
 	if err != nil {
-		if err == ErrPackageNotFound {
+		if err == errPackageNotFound {
 			t.Fatalf("No package found for %v", r.EAN)
 		} else {
 			t.Fatal(err)

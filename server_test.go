@@ -207,7 +207,7 @@ func TestAddPackageHandler(t *testing.T) {
 	}
 
 	if v, err := packageDB.Get(ean); err != nil {
-		if err == ErrPackageNotFound {
+		if err == errPackageNotFound {
 			t.Errorf("%v not added to packages", ean)
 		} else {
 			t.Fatal(err)

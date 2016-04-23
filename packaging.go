@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-var ErrPackageNotFound = errors.New("ean not found in packages db")
-
 type Bin struct {
 	Name string `json:"name" bson:"name"`
 	ID   uint   `json:"id" bson:"_id,omitempty"`
@@ -100,7 +98,7 @@ func (db mgoPackagesDB) Get(ean string) (Package, error) {
 		item := mgoPackageItem{}
 		if err := collection.Find(bson.M{"ean": ean}).One(&item); err != nil {
 			if err == mgo.ErrNotFound {
-				return ErrPackageNotFound
+				return errPackageNotFound
 			}
 			return err
 		}
@@ -191,7 +189,7 @@ func NewProductPackage(p Product, db PackagesDB) (ProductPackage, error) {
 	pp := ProductPackage{Product: p}
 	pkg, err := db.Get(p.EAN)
 	if err != nil {
-		if err == ErrPackageNotFound {
+		if err == errPackageNotFound {
 			pp.Materials = make([]Material, 0, 0)
 			return pp, nil
 		}

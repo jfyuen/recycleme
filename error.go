@@ -1,21 +1,25 @@
 package recycleme
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 var errNotFound = fmt.Errorf("product not found")
 var errInvalidEAN = fmt.Errorf("invalid ean")
 var errBlacklisted = fmt.Errorf("product blacklisted for url")
 var errTooManyProducts = fmt.Errorf("too many products found")
+var errPackageNotFound = errors.New("ean not found in packages db")
 
-type ProductError struct {
+type productError struct {
 	EAN, URL string
 	err      error
 }
 
-func (err ProductError) Error() string {
+func (err productError) Error() string {
 	return fmt.Sprintf("%v for %v at %v", err.err, err.EAN, err.URL)
 }
 
-func NewProductError(ean, url string, err error) *ProductError {
-	return &ProductError{EAN: ean, URL: url, err: err}
+func newProductError(ean, url string, err error) *productError {
+	return &productError{EAN: ean, URL: url, err: err}
 }

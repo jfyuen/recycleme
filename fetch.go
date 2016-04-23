@@ -176,14 +176,14 @@ type innerFetchFunc func() (Product, error)
 
 func withCheckInBlacklist(b BlacklistDB, ean, url string, fn innerFetchFunc) (Product, error) {
 	if ok, err := b.Contains(url); err != nil {
-		return Product{}, NewProductError(ean, url, err)
+		return Product{}, newProductError(ean, url, err)
 	} else if ok {
-		return Product{}, NewProductError(ean, url, errBlacklisted)
+		return Product{}, newProductError(ean, url, errBlacklisted)
 	}
 
 	p, err := fn()
 	if err != nil {
-		return Product{}, NewProductError(ean, url, err)
+		return Product{}, newProductError(ean, url, err)
 	}
 	return p, nil
 }
@@ -442,7 +442,7 @@ func (f amazonURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	url, err := f.buildURL(ean)
 	endPoint := fmt.Sprintf("%s/%s", f.endPoint, ean)
 	if err != nil {
-		return Product{}, NewProductError(ean, endPoint, err)
+		return Product{}, newProductError(ean, endPoint, err)
 	}
 	p, err := withCheckInBlacklist(db, ean, url, func() (Product, error) {
 		body, err := fetchURL(url)
@@ -477,7 +477,7 @@ func (f amazonURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 		return Product{EAN: ean, URL: endPoint, Name: firstItem.Title, ImageURL: firstItem.LargeImageURL, WebsiteURL: firstItem.DetailPageURL, WebsiteName: f.WebsiteName}, nil
 	})
 	if err != nil {
-		pErr := err.(*ProductError)
+		pErr := err.(*productError)
 		pErr.URL = endPoint
 	}
 	return p, err
