@@ -7,6 +7,7 @@
     <title>Comment me recycler ?</title>
     <script src="//code.jquery.com/jquery-2.2.1.min.js"></script>
     <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/static/js/JOB.js"></script>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
           integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
     <style>
@@ -63,6 +64,10 @@
             from { -webkit-transform: rotate(0deg); }
             to { -webkit-transform: rotate(360deg); }
         }
+
+        #barcode_file_input {
+            width: 200px;
+        }
     </style>
 </head>
 <body>
@@ -70,11 +75,12 @@
     <header class="page-header"><h1>Comment me recycler ?</h1>à Paris</header>
     <p>
         Vous ne savez pas dans quelle poubelle jeter les différents emballages d'un produit ?<br>
-        Ne cherchez plus, rentrez le code barre ci-dessous !
+        Ne cherchez plus, choisissez une photo avec le code barre ou rentrez le ci-dessous !
     </p>
     <div class="row">
         <form role="form" class="form-inline" id="recycle_form">
             <label class="sr-only" for="barcode">Code barre</label>
+            <input class="form-control form-control-inline" id="barcode_file_input" type="file" accept="image/*;capture=camera" />
             <input type="text" class="form-control form-control-inline" id="barcode" placeholder="Code barre" size="24" required>
             <button type="submit" class="btn btn-primary">
                 Recycler
@@ -174,7 +180,49 @@
     </div>
 </footer>
 <script>
-        "use strict";
+    "use strict";
+
+    $(function() {
+        var App = {
+            init: function() {
+                App.attachListeners();
+            } ,
+
+            attachListeners: function() {
+                var self = this;
+
+                $("#barcode_file_input").on("change", function(e){
+                    $("#help").empty();
+                    $("#recycle_form").removeClass("has-error");
+                    $("#barcode").val("");
+                    var input = $("#barcode_file_input");
+                    if (input[0].files && input[0].files.length) {
+                        var tmpImgURL = URL.createObjectURL(input[0].files[0]) ;
+                        App.decode(tmpImgURL);
+                    }
+                });
+
+            },
+            detachListeners: function() {
+                $("#startDecode").off("click");
+            },
+
+            decode: function(src) {
+                JOB.SetImageCallback(function(result) {
+                    if(result.length > 0) {
+                        $("#barcode").val(result[0].Value); // Only take 1st bar code
+                    } else {
+                        $("#recycle_form").addClass("has-error");
+                        $("#help").text("cannot read image");
+                    }
+                });
+                JOB.DecodeImage(src);
+            }
+        };
+        JOB.Init();
+        App.init();
+    });
+
         var product;
 
         function isLoading() {
@@ -205,7 +253,7 @@
                 product = null;
                 $("#loading").fadeTo("fast", 1.);
                 recycle.removeClass("has-error");
-                $("#help").text("");
+                $("#help").empty();
                 var url = "/throwaway/" + ean;
 
                 $.get(url, function(data) {
@@ -352,6 +400,7 @@
         $("#suggest_modal").on("hidden.bs.modal", function () {
             suggest_form.removeClass("has-error");
         });
+
 
 </script>
 </body>

@@ -9,7 +9,11 @@ import (
 )
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "data/index.html")
+	if r.URL.Path == "/" {
+		http.ServeFile(w, r, "static/index.html")
+	} else {
+		http.Error(w, "page not found", http.StatusNotFound)
+	}
 }
 
 func MaterialsHandler(w http.ResponseWriter, r *http.Request, db MaterialDB) {

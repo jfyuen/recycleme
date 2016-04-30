@@ -84,7 +84,7 @@ func main() {
 		})
 		http.HandleFunc("/", recycleme.HomeHandler)
 
-		fs := http.FileServer(http.Dir("data/static"))
+		fs := http.FileServer(http.Dir("static"))
 		http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 		logger.Println("Running in server mode on port " + *serverPort)
