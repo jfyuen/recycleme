@@ -39,6 +39,7 @@ JOB = {
 	ImageCallback : null, // Callback for the decoding of an image.
 	StreamCallback : null, // Callback for the decoding of a video.
 	LocalizationCallback : null, // Callback for localization.
+	ErrorCallback : null, // Callback for error.
 	Stream : null, // The actual video.
 	DecodeStreamActive : false, // Will be set to false when StopStreamDecode() is called.
 	Decoded : [], // Used to enfore the ForceUnique property.
@@ -64,6 +65,11 @@ JOB = {
 	SetImageCallback : function(callBack) {
 		JOB.ImageCallback = callBack;
 	},
+
+    // Sets the error callback function.
+    SetErrorCallback : function(callBack) {
+        JOB.ErrorCallback = callBack;
+    },
 	
 	// Sets the callback function for the video decoding.
 	SetStreamCallback : function(callBack) {
@@ -235,6 +241,7 @@ JOB = {
 					});
 				}
 			};
+            img.onerror = JOB.ErrorCallback
 			img.src = image;
 		}
 	},

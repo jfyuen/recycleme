@@ -208,18 +208,25 @@
             },
 
             decode: function(src) {
-                JOB.SetImageCallback(function(result) {
-                    if(result.length > 0) {
-                        $("#barcode").val(result[0].Value); // Only take 1st bar code
-                    } else {
-                        $("#recycle_form").addClass("has-error");
-                        $("#help").text("cannot read image");
-                    }
-                });
                 JOB.DecodeImage(src);
             }
         };
+
         JOB.Init();
+        JOB.SetImageCallback(function(result) {
+            console.log(result);
+            if(result.length > 0) {
+                $("#barcode").val(result[0].Value); // Only take 1st bar code
+            } else {
+                $("#recycle_form").addClass("has-error");
+                $("#help").text("cannot read image");
+            }
+        });
+        JOB.SetErrorCallback(function() {
+            $("#recycle_form").addClass("has-error");
+            $("#help").text("cannot read image");
+        });
+
         App.init();
     });
 
