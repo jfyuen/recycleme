@@ -368,9 +368,9 @@ $(function() {
                 if (selected.length == 0) {
                     suggest_form.addClass("has-error");
                 } else {
+                    $('#suggest_modal').modal('toggle');
                      $.post("/package/add", {materials: JSON.stringify(selected), ean: self.app.product.ean}, function() {
                         self.app.submit(self.app.product.ean);
-                        $('#suggest_modal').modal('toggle');
                     });
                 }
 
