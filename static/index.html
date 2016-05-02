@@ -214,12 +214,15 @@
 
         JOB.Init();
         JOB.SetImageCallback(function(result) {
-            console.log(result);
-            if(result.length > 0) {
+            if(result.length == 1) {
                 $("#barcode").val(result[0].Value); // Only take 1st bar code
             } else {
                 $("#recycle_form").addClass("has-error");
-                $("#help").text("cannot read image");
+                if(result.length == 0) {
+                    $("#help").text("No bar code found");
+                } else {
+                    $("#help").text("Multiple bar codes found");
+                }
             }
         });
         JOB.SetErrorCallback(function() {
