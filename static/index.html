@@ -187,7 +187,9 @@ $(function() {
     JOB.Init();
     JOB.SetImageCallback(function(result) {
         if(result.length == 1) {
-            $("#barcode").val(result[0].Value); // Only take 1st bar code
+            var ean = result[0].Value;
+            $("#barcode").val(ean); // Only take 1st bar code
+            App.submit(ean);
         } else {
             $("#recycle_form").addClass("has-error");
             if(result.length == 0) {
