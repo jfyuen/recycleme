@@ -180,66 +180,68 @@
     </div>
 </footer>
 <script>
-    "use strict";
+"use strict";
 
-    $(function() {
-        var App = {
-            init: function() {
-                App.attachListeners();
-            } ,
+$(function() {
 
-            attachListeners: function() {
-                var self = this;
-
-                $("#barcode_file_input").on("change", function(e){
-                    $("#help").empty();
-                    $("#recycle_form").removeClass("has-error");
-                    $("#barcode").val("");
-                    var input = $("#barcode_file_input");
-                    if (input[0].files && input[0].files.length) {
-                        var tmpImgURL = URL.createObjectURL(input[0].files[0]) ;
-                        App.decode(tmpImgURL);
-                    }
-                });
-
-            },
-            detachListeners: function() {
-                $("#startDecode").off("click");
-            },
-
-            decode: function(src) {
-                JOB.DecodeImage(src);
-            }
-        };
-
-        JOB.Init();
-        JOB.SetImageCallback(function(result) {
-            if(result.length == 1) {
-                $("#barcode").val(result[0].Value); // Only take 1st bar code
-            } else {
-                $("#recycle_form").addClass("has-error");
-                if(result.length == 0) {
-                    $("#help").text("No bar code found");
-                } else {
-                    $("#help").text("Multiple bar codes found");
-                }
-            }
-        });
-        JOB.SetErrorCallback(function() {
+    JOB.Init();
+    JOB.SetImageCallback(function(result) {
+        if(result.length == 1) {
+            $("#barcode").val(result[0].Value); // Only take 1st bar code
+        } else {
             $("#recycle_form").addClass("has-error");
-            $("#help").text("cannot read image");
-        });
-
-        App.init();
+            if(result.length == 0) {
+                $("#help").text("No bar code found");
+            } else {
+                $("#help").text("Multiple bar codes found");
+            }
+        }
     });
 
-        var product;
+    JOB.SetErrorCallback(function() {
+        $("#recycle_form").addClass("has-error");
+        $("#help").text("cannot read image");
+    });
 
-        function isLoading() {
-            return $("#loading").css("opacity") != 0;
-        }
+    var App = {
+        init: function(job) {
+            this.attachListeners();
+            this.product = null;
+            this.job = job;
+        },
 
-        function hideAll() {
+        attachListeners: function() {
+            var self = this;
+
+            $("#barcode_file_input").on("change", function(e){
+                $("#help").empty();
+                $("#recycle_form").removeClass("has-error");
+                $("#barcode").val("");
+                var input = $("#barcode_file_input");
+                if (input[0].files && input[0].files.length) {
+                    var tmpImgURL = URL.createObjectURL(input[0].files[0]) ;
+                    self.decode(tmpImgURL);
+                }
+            });
+
+
+            $("#recycle_form").submit(function (evt) {
+                evt.preventDefault();
+
+                var barcode = $("#barcode");
+                var barcodeVal = barcode.val();
+                return self.submit(barcodeVal);
+            });
+        },
+        detachListeners: function() {
+            $("#recycle_form").off("submit");
+        },
+
+        decode: function(src) {
+            this.job.DecodeImage(src);
+        },
+
+        reset: function() {
             $("#no_data").hide();
             $("#product").hide();
             $(".name").empty();
@@ -248,19 +250,26 @@
             $("#throwaway").hide();
             $("#bins").empty()
             $("#source_url").empty();
-        }
+        },
 
-        function submitRecycleForm(ean) {
-            if (isLoading()) {
+        isLoading: function () {
+            return $("#loading").css("opacity") != 0;
+        },
+
+        submit: function(ean) {
+            var self = this;
+
+            if (self.isLoading()) {
                 return false;
             }
 
-            hideAll();
+            self.reset();
 
+            var recycle = $("#recycle_form");
             if (ean.length == 0) {
                 recycle.addClass("has-error");
             } else {
-                product = null;
+                self.product = null;
                 $("#loading").fadeTo("fast", 1.);
                 recycle.removeClass("has-error");
                 $("#help").empty();
@@ -269,13 +278,13 @@
                 $.get(url, function(data) {
                     data = $.parseJSON(data)
                     var throwAway = data.throwAway;
-                    product = data.product;
-                    $(".name").text(product.name);
-                    $(".ean").text(product.ean);
-                    $("#image").attr("src", product.imageURL);
+                    self.product = data.product;
+                    $(".name").text(self.product.name);
+                    $(".ean").text(self.product.ean);
+                    $("#image").attr("src", self.product.imageURL);
                     var sourceUrl = $("#source_url");
-                    sourceUrl.attr("href", product.websiteURL);
-                    sourceUrl.text(product.websiteName);
+                    sourceUrl.attr("href", self.product.websiteURL);
+                    sourceUrl.text(self.product.websiteName);
                     $("#product").show();
 
                     if (jQuery.isEmptyObject(throwAway)) {
@@ -319,97 +328,133 @@
             }
             return false;
         }
+    };
 
-        var recycle = $("#recycle_form");
-        recycle.submit(function (evt) {
-            evt.preventDefault();
+    App.init(JOB);
 
-            var barcode = $("#barcode");
-            var barcodeVal = barcode.val();
-            return submitRecycleForm(barcodeVal);
-        });
+    var Suggester = {
+        init: function(app) {
+            this.attachListeners();
+            this.app = app;
+        },
+        attachListeners: function() {
+            var self = this;
+            var suggest_form = $("#suggest_form");
 
+            $("#suggest_modal").on("hidden.bs.modal", function () {
+                suggest_form.removeClass("has-error");
+            });
 
-        var blacklist = $("#blacklist_form");
-        blacklist.submit(function (evt) {
-            evt.preventDefault();
-            var name = $("#blacklist_name");
-            var nameVal = name.val();
+            suggest_form.submit(function (evt) {
+                evt.preventDefault();
 
-            if (nameVal.length == 0) {
-                blacklist.addClass("has-error");
-            } else {
-                $.post("/blacklist/add", {name: nameVal, url: product.url, ean: product.ean, website: product.websiteName}, function() {
-                    $('#blacklist_modal').modal('toggle');
+                var selected = [];
+                $('#materials_list input:checked').each(function() {
+                    var name = $(this).attr("id");
+                    var id = name.replace("materialId-", "");
+                    var text = $("label[for=" + name + "]");
+                    selected.push({name: text.text(), id: parseInt(id)});
                 });
-            }
 
-            return false;
-        });
-
-        $("#blacklist_modal").on("hidden.bs.modal", function () {
-            blacklist.removeClass("has-error");
-        });
-
-        function addMaterialItem(lst, id, name) {
-            lst.append('<div class="checkbox col-sm-4 suggest-checkbox"><label for="materialId-' + id + '"><input type="checkbox" value="" id="materialId-' + id + '">' + name + '</label></div>');
-        }
-
-        $(".suggest_button").click(function() {
-            var url = "/materials/";
-
-            $.get(url, function(data) {
-                data = $.parseJSON(data)
-
-                if (data.length == 0) {
-                    $("#suggest_help").text("Pas d'emballage disponible");
+                if (selected.length == 0) {
+                    suggest_form.addClass("has-error");
                 } else {
-                    var lst = $("#materials_list");
-                    lst.html("");
-                    for (var i = 0; i < data.length; i++) {
-                        var v = data[i]
-                        addMaterialItem(lst, v.id, v.name);
-                    }
+                     $.post("/package/add", {materials: JSON.stringify(selected), ean: self.app.product.ean}, function() {
+                        console.log(self.app.product);
+                        self.app.submit(self.app.product.ean);
+                        $('#suggest_modal').modal('toggle');
+                    });
+                }
 
-                    if (product != null) {
-                        for (var i = 0; i < product.materials.length; i++) {
-                            var id = product.materials[i].id;
-                            $("#materialId-" + id.toString()).prop("checked", true);
+                return false;
+            });
+
+            $(".suggest_button").click(function() {
+                var url = "/materials/";
+
+                $.get(url, function(data) {
+                    data = $.parseJSON(data)
+
+                    if (data.length == 0) {
+                        $("#suggest_help").text("Pas d'emballage disponible");
+                    } else {
+                        var lst = $("#materials_list");
+                        lst.html("");
+                        for (var i = 0; i < data.length; i++) {
+                            var v = data[i]
+                            self.addMaterialItem(lst, v.id, v.name);
+                        }
+
+                        if (self.app.product != null) {
+                            for (var i = 0; i < self.app.product.materials.length; i++) {
+                                var id = self.app.product.materials[i].id;
+                                $("#materialId-" + id.toString()).prop("checked", true);
+                            }
                         }
                     }
-                }
-            }).fail(function(xhr) {
-                $("#suggest_help").html(xhr.responseText.replace(/\n/g, "<br>"));
-            });
-        });
-
-        var suggest_form = $("#suggest_form");
-        suggest_form.submit(function (evt) {
-            evt.preventDefault();
-
-            var selected = [];
-            $('#materials_list input:checked').each(function() {
-                var name = $(this).attr("id");
-                var id = name.replace("materialId-", "");
-                var text = $("label[for=" + name + "]");
-                selected.push({name: text.text(), id: parseInt(id)});
-            });
-
-            if (selected.length == 0) {
-                suggest_form.addClass("has-error");
-            } else {
-                 $.post("/package/add", {materials: JSON.stringify(selected), ean: product.ean}, function() {
-                    submitRecycleForm(product.ean);
-                    $('#suggest_modal').modal('toggle');
+                }).fail(function(xhr) {
+                    $("#suggest_help").html(xhr.responseText.replace(/\n/g, "<br>"));
                 });
-            }
+            });
+        },
 
-            return false;
-        });
+        addMaterialItem: function(lst, id, name) {
+            lst.append('<div class="checkbox col-sm-4 suggest-checkbox"><label for="materialId-' + id + '"><input type="checkbox" value="" id="materialId-' + id + '">' + name + '</label></div>');
+        },
 
-        $("#suggest_modal").on("hidden.bs.modal", function () {
-            suggest_form.removeClass("has-error");
-        });
+        detachListeners: function() {
+            $("#suggest_modal").off("hidden.bs.modal");
+            $("#suggest_form").off("submit");
+            $(".suggest_button").off("click");
+        },
+
+    };
+
+    Suggester.init(App);
+
+
+    var BlackLister = {
+        init: function(app) {
+            this.attachListeners();
+            this.app = app;
+        },
+
+        attachListeners: function() {
+            var self = this;
+
+            var blacklist = $("#blacklist_form");
+            $("#blacklist_modal").on("hidden.bs.modal", function () {
+                blacklist.removeClass("has-error");
+            });
+
+            blacklist.submit(function (evt) {
+                evt.preventDefault();
+                var name = $("#blacklist_name");
+                var nameVal = name.val();
+
+                if (nameVal.length == 0) {
+                    blacklist.addClass("has-error");
+                } else {
+                    var product = self.app.product;
+                    $.post("/blacklist/add", {name: nameVal, url: product.url, ean: product.ean, website: product.websiteName}, function() {
+                        $('#blacklist_modal').modal('toggle');
+                    });
+                }
+
+                return false;
+            });
+        },
+
+        detachListeners: function() {
+            $("#blacklist_modal").off("hidden.bs.modal");
+            $("#blacklist_form").off("submit");
+        },
+
+    };
+
+    BlackLister.init(App)
+});
+
 
 
 </script>
