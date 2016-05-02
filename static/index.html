@@ -189,8 +189,10 @@ $(function() {
         if(result.length == 1) {
             var ean = result[0].Value;
             $("#barcode").val(ean); // Only take 1st bar code
+            App.isLoading = false; // hack to prevent loading disappearing
             App.submit(ean);
         } else {
+            App.stopLoading();
             $("#recycle_form").addClass("has-error");
             if(result.length == 0) {
                 $("#help").text("No bar code found");
@@ -201,6 +203,7 @@ $(function() {
     });
 
     JOB.SetErrorCallback(function() {
+        App.stopLoading();
         $("#recycle_form").addClass("has-error");
         $("#help").text("cannot read image");
     });
@@ -210,6 +213,7 @@ $(function() {
             this.attachListeners();
             this.product = null;
             this.job = job;
+            this.isLoading = false;
         },
 
         attachListeners: function() {
@@ -221,8 +225,9 @@ $(function() {
                 $("#barcode").val("");
                 var input = $("#barcode_file_input");
                 if (input[0].files && input[0].files.length) {
-                    var tmpImgURL = URL.createObjectURL(input[0].files[0]) ;
-                    self.decode(tmpImgURL);
+                    var tmpImgURL = URL.createObjectURL(input[0].files[0]);
+                    self.startLoading();
+                    self.job.DecodeImage(tmpImgURL);
                 }
             });
 
@@ -239,10 +244,6 @@ $(function() {
             $("#recycle_form").off("submit");
         },
 
-        decode: function(src) {
-            this.job.DecodeImage(src);
-        },
-
         reset: function() {
             $("#no_data").hide();
             $("#product").hide();
@@ -254,14 +255,20 @@ $(function() {
             $("#source_url").empty();
         },
 
-        isLoading: function () {
-            return $("#loading").css("opacity") != 0;
+        startLoading: function() {
+            this.isLoading = true;
+            $("#loading").fadeTo("fast", 1.);
+        },
+
+        stopLoading: function() {
+            this.isLoading = false;
+            $("#loading").fadeTo("fast", 0.);
         },
 
         submit: function(ean) {
             var self = this;
 
-            if (self.isLoading()) {
+            if (self.isLoading) {
                 return false;
             }
 
@@ -272,7 +279,7 @@ $(function() {
                 recycle.addClass("has-error");
             } else {
                 self.product = null;
-                $("#loading").fadeTo("fast", 1.);
+                self.startLoading();
                 recycle.removeClass("has-error");
                 $("#help").empty();
                 var url = "/throwaway/" + ean;
@@ -291,7 +298,7 @@ $(function() {
 
                     if (jQuery.isEmptyObject(throwAway)) {
                         $("#no_data").show();
-                        $("#loading").fadeTo("fast", 0.);
+                        self.stopLoading();
                     } else {
                         var binCount = 0;
                         var bins = {};
@@ -320,12 +327,12 @@ $(function() {
                             binId++;
                         }
                         $("#throwaway").show();
-                        $("#loading").fadeTo("fast", 0.);
+                        self.stopLoading();
                     }
                 }).fail(function(xhr) {
                     recycle.addClass("has-error");
                     $("#help").html(xhr.responseText.replace(/\n/g, "<br>"));
-                    $("#loading").fadeTo("fast", 0.);
+                    self.stopLoading();
                 });
             }
             return false;
