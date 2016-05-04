@@ -9,7 +9,7 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/nicholassm/go-ean",
-			"Rev": "79d297de418d76d8cc9b86bbd7431ef6077c4a8f"
+			"Rev": "c3635ff48801582a8e0b2ba7f2eacc572d96f140"
 		},
 		{
 			"ImportPath": "golang.org/x/net/html",
