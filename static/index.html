@@ -443,8 +443,9 @@ $(function() {
                     blacklist.addClass("has-error");
                 } else {
                     var product = self.app.product;
+                    $('#blacklist_modal').modal('toggle');
                     $.post("/blacklist/add", {name: nameVal, url: product.url, ean: product.ean, website: product.websiteName}, function() {
-                        $('#blacklist_modal').modal('toggle');
+                        self.app.submit(self.app.product.ean);
                     });
                 }
 
