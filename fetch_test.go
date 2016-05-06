@@ -66,7 +66,7 @@ func TestDefaultFetchers(t *testing.T) {
 		t.Error(err)
 	} else if p.Name != "Stabilo Boss Original Highlighter Blue" ||
 		p.EAN != "4006381333634" ||
-		p.URL != "http://www.upcitemdb.com/upc/4006381333634" ||
+		p.URL != "http`://www.upcitemdb.com/upc/4006381333634" ||
 		p.WebsiteURL != "http://www.upcitemdb.com/upc/4006381333634" ||
 		p.ImageURL != "http://ecx.images-amazon.com/images/I/41SfgGjtcpL._SL160_.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
@@ -89,6 +89,16 @@ func TestDefaultFetchers(t *testing.T) {
 		p.URL != "http://www.isbnsearch.org/isbn/9782501104265" ||
 		p.WebsiteURL != "http://www.isbnsearch.org/isbn/9782501104265" ||
 		p.ImageURL != "http://ecx.images-amazon.com/images/I/51V4iimUfML._SL194_.jpg" {
+		t.Errorf("Some attributes are invalid for: %v", p)
+	}
+
+	p, err = IGalerieFetcher.Fetch("8714789941011", blacklistDB)
+	if err != nil {
+		t.Error(err)
+	} else if p.Name != "" || p.EAN != "8714789941011" ||
+		p.URL != "http://90.80.54.225/?search=8714789941011" ||
+		p.WebsiteURL != "http://90.80.54.225/?search=8714789941011" ||
+		p.ImageURL != "http://90.80.54.225/albums/Permanent/LOGIDIS2/8714789941011.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 }
