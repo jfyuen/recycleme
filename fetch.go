@@ -226,10 +226,12 @@ func (f iGalerieFetcher) parseBody(b []byte) (Product, error) {
 					if len(c.Attr) == 1 {
 						classAttr := c.Attr[0]
 						if classAttr.Key == "id" && classAttr.Val == "search_result" {
-							txt := c.FirstChild.NextSibling.FirstChild
-							if txt.Type == html.TextNode && !strings.Contains(txt.Data, "1 image trouv") {
-								err = errTooManyProducts
-								return
+							if c.FirstChild != nil && c.FirstChild.NextSibling != nil && c.FirstChild.NextSibling.FirstChild != nil {
+								txt := c.FirstChild.NextSibling.FirstChild
+								if txt.Type == html.TextNode && !strings.Contains(txt.Data, "1 image trouv") {
+									err = errTooManyProducts
+									return
+								}
 							}
 						}
 					}
