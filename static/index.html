@@ -378,6 +378,8 @@ $(function() {
 
             $(".suggest_button").click(function() {
                 var url = "/materials/";
+                var lst = $("#materials_list");
+                lst.html("");
 
                 $.get(url, function(data) {
                     data = $.parseJSON(data)
@@ -385,8 +387,6 @@ $(function() {
                     if (data.length == 0) {
                         $("#suggest_help").text("Pas d'emballage disponible");
                     } else {
-                        var lst = $("#materials_list");
-                        lst.html("");
                         for (var i = 0; i < data.length; i++) {
                             var v = data[i]
                             self.addMaterialItem(lst, v.id, v.name);
