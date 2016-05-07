@@ -251,7 +251,7 @@ $(function() {
             $("#image").src = "";
             $("#throwaway").hide();
             $("#bins").empty()
-            $("#source_url").empty();
+            $("#source").empty();
         },
 
         startLoading: function() {
@@ -294,7 +294,7 @@ $(function() {
                     if (self.product.website_url == "") {
                         source.text("Source: " + self.product.website_name)
                     } else {
-                        source.html("Source: " + '<a href="' + self.product.website_url + '" rel="noopener" target="_blank"></a>');
+                        source.html("Source: " + '<a href="' + self.product.website_url + '" rel="noopener" target="_blank">' + self.product.website_name + '</a>');
                     }
                     $("#product").show();
 
