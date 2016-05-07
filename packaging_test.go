@@ -132,11 +132,11 @@ func createBins(db *mgoPackagesDB) error {
 
 func createMaterials(db *mgoPackagesDB) error {
 	return withMgoSession(db.session, func(s *mgo.Session) error {
-		var materialsWithBinId []struct {
+		var materialsWithBinID []struct {
 			Material `json:",inline"`
 			BinID    uint `json:"bin_id"`
 		}
-		if err := json.Unmarshal([]byte(materialsJSON), &materialsWithBinId); err != nil {
+		if err := json.Unmarshal([]byte(materialsJSON), &materialsWithBinID); err != nil {
 			return err
 		}
 
@@ -150,7 +150,7 @@ func createMaterials(db *mgoPackagesDB) error {
 			return err
 		}
 
-		for _, m := range materialsWithBinId {
+		for _, m := range materialsWithBinID {
 			if err := materialsCols.Insert(m.Material); err != nil {
 				return err
 			}
@@ -189,6 +189,21 @@ func createPackages(db *mgoPackagesDB) error {
 	})
 }
 
+func createLocalProducts(db *mgoLocalProductDB) error {
+	return withMgoSession(db.session, func(s *mgo.Session) error {
+		collection := s.DB("").C(db.colName)
+		if err := collection.DropCollection(); err != nil && err.Error() != "ns not found" {
+			return err
+		}
+
+		p := Product{EAN: "ean_test", Name: "name_test", WebsiteName: "website_name_test"}
+		if err := collection.Insert(p); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
 func TestPackage(t *testing.T) {
 	r := Package{EAN: "7613034383808", Materials: []Material{
 		Material{ID: 1, Name: "Boîte carton"},
@@ -334,6 +349,7 @@ func TestPackageDBSet(t *testing.T) {
 
 var packageDB *mgoPackagesDB
 var blacklistDB *mgoBlacklistDB
+var localProductDB *mgoLocalProductDB
 
 func TestMain(m *testing.M) {
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
@@ -355,6 +371,12 @@ func TestMain(m *testing.M) {
 	if err = createPackages(packageDB); err != nil {
 		logger.Fatal(err)
 	}
+
+	localProductDB = NewMgoLocalProductDB(mongoSession, "test_")
+	if err = createLocalProducts(localProductDB); err != nil {
+		logger.Fatal(err)
+	}
+
 	blacklistDB = NewMgoBlacklistDB(mongoSession, "test_")
 	ex := m.Run()
 	mongoSession.Close()

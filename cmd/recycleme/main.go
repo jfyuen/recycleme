@@ -54,7 +54,8 @@ func main() {
 	packageDB := recycleme.NewMgoPackageDB(mongoSession, "")
 	blacklistDB := recycleme.NewMgoBlacklistDB(mongoSession, "")
 
-	fetcher, err := recycleme.NewDefaultFetcher()
+	localProductDB := recycleme.NewMgoLocalProductDB(mongoSession, "")
+	fetcher, err := recycleme.NewDefaultFetcher(localProductDB)
 	if err != nil {
 		logger.Println(err.Error())
 	}

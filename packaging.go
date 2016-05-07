@@ -93,8 +93,8 @@ func NewMgoPackageDB(s *mgo.Session, colPrefix string) *mgoPackagesDB {
 func (db mgoPackagesDB) Get(ean string) (Package, error) {
 	p := Package{EAN: ean}
 	err := withMgoSession(db.session, func(s *mgo.Session) error {
-		db_ := s.DB("")
-		collection := db_.C(db.packagesColName)
+		localDB := s.DB("")
+		collection := localDB.C(db.packagesColName)
 		item := mgoPackageItem{}
 		if err := collection.Find(bson.M{"ean": ean}).One(&item); err != nil {
 			if err == mgo.ErrNotFound {
@@ -102,7 +102,7 @@ func (db mgoPackagesDB) Get(ean string) (Package, error) {
 			}
 			return err
 		}
-		materialsCol := db_.C(db.materialsColName)
+		materialsCol := localDB.C(db.materialsColName)
 		req := bson.M{"_id": bson.M{"$in": item.MaterialIDs}}
 		if err := materialsCol.Find(req).All(&p.Materials); err != nil {
 			return err

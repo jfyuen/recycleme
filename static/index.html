@@ -97,7 +97,7 @@
     <div class="row">
         <div class="col-sm-4 col-sm-offset-2">
             <img src="" id="image">
-            <div class="source">Source: <a href="" id="source_url" target="_blank"></a></div>
+            <div id="source"></div>
             <button type="button" class="btn btn-warning" data-toggle="modal" data-target="#blacklist_modal">Pas le bon produit ?</button>
         </div>
         <div class="col-sm-4">
@@ -175,7 +175,7 @@
 <footer class="footer">
     <div class="container text-center small">
         2016 // <a href="mailto:jfyuen@gmail.com">jfyuen</a> //
-        <a href="https://github.com/jfyuen/recycleme" target="_blank">source</a>
+        <a href="https://github.com/jfyuen/recycleme" rel="noopener" target="_blank">source</a>
     </div>
 </footer>
 <script>
@@ -289,10 +289,13 @@ $(function() {
                     self.product = data.product;
                     $(".name").text(self.product.name);
                     $(".ean").text(self.product.ean);
-                    $("#image").attr("src", self.product.imageURL);
-                    var sourceUrl = $("#source_url");
-                    sourceUrl.attr("href", self.product.websiteURL);
-                    sourceUrl.text(self.product.websiteName);
+                    $("#image").attr("src", self.product.image_url);
+                    var source = $("#source");
+                    if (self.product.website_url == "") {
+                        source.text("Source: " + self.product.website_name)
+                    } else {
+                        source.html("Source: " + '<a href="' + self.product.website_url + '" rel="noopener" target="_blank"></a>');
+                    }
                     $("#product").show();
 
                     if (jQuery.isEmptyObject(throwAway)) {
@@ -444,7 +447,7 @@ $(function() {
                 } else {
                     var product = self.app.product;
                     $('#blacklist_modal').modal('toggle');
-                    $.post("/blacklist/add", {name: nameVal, url: product.url, ean: product.ean, website: product.websiteName}, function() {
+                    $.post("/blacklist/add", {name: nameVal, url: product.url, ean: product.ean, website: product.website_name}, function() {
                         self.app.submit(self.app.product.ean);
                     });
                 }

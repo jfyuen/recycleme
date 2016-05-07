@@ -23,12 +23,12 @@ import (
 )
 
 type Product struct {
-	EAN         string `json:"ean"`         // EAN number for the Product
-	Name        string `json:"name"`        // Name of the Product
-	URL         string `json:"url"`         // URL where the details of the Product were found
-	ImageURL    string `json:"imageURL"`    // URL where to find an image of the Product
-	WebsiteURL  string `json:"websiteURL"`  // URL where to find the details of the Product
-	WebsiteName string `json:"websiteName"` // Website name
+	EAN         string `json:"ean" bson:"ean"`                   // EAN number for the Product
+	Name        string `json:"name" bson:"name"`                 // Name of the Product
+	URL         string `json:"url" bson:"url"`                   // URL where the details of the Product were found
+	ImageURL    string `json:"image_url" bson:"image_url"`       // URL where to find an image of the Product
+	WebsiteURL  string `json:"website_url" bson:"website_url"`   // URL where to find the details of the Product
+	WebsiteName string `json:"website_name" bson:"website_name"` // Website name
 }
 
 func (p Product) String() string {
@@ -244,10 +244,10 @@ func (f iGalerieFetcher) parseBody(b []byte) (Product, error) {
 								isProduct = true
 							}
 							if attr.Key == "style" && isProduct && len(p.ImageURL) == 0 && strings.Contains(attr.Val, "background:url") {
-								imageUrl := strings.Replace(attr.Val, "background:url(/getimg.php?img=", "", 1)
-								imageUrl = strings.Replace(imageUrl, ") no-repeat center", "", 1)
-								imageUrl = strings.Split(f.URL, "?")[0] + "albums/" + imageUrl
-								p.ImageURL = imageUrl
+								imageURL := strings.Replace(attr.Val, "background:url(/getimg.php?img=", "", 1)
+								imageURL = strings.Replace(imageURL, ") no-repeat center", "", 1)
+								imageURL = strings.Split(f.URL, "?")[0] + "albums/" + imageURL
+								p.ImageURL = imageURL
 							}
 						}
 					}
@@ -572,6 +572,37 @@ func (f amazonURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	return p, err
 }
 
+type mgoLocalProductDB struct {
+	mgoDB
+	colName string
+}
+
+func NewMgoLocalProductDB(s *mgo.Session, colPrefix string) *mgoLocalProductDB {
+	return &mgoLocalProductDB{mgoDB: mgoDB{session: s}, colName: colPrefix + "local_products"}
+}
+
+func (db mgoLocalProductDB) Fetch(ean string, blacklist BlacklistDB) (Product, error) {
+	url := db.fullURL(ean)
+	return withCheckInBlacklist(blacklist, ean, url, func() (Product, error) {
+		p := Product{}
+		err := withMgoSession(db.session, func(s *mgo.Session) error {
+			if err := s.DB("").C(db.colName).Find(bson.M{"ean": ean}).One(&p); err != nil {
+				return err
+			}
+			return nil
+		})
+		return p, err
+	})
+}
+
+func (db mgoLocalProductDB) fullURL(ean string) string {
+	return fmt.Sprintf("http://localhost/ean/%s", ean)
+}
+
+func (db mgoLocalProductDB) IsURLValidForEAN(url, ean string) bool {
+	return db.fullURL(ean) == url
+}
+
 type DefaultFetcher struct {
 	fetchers []Fetcher
 }
@@ -581,10 +612,14 @@ type DefaultFetcher struct {
 // - upcitemdb
 // - openfoodfacts
 // - isbnsearch
+// - iGalerie (some random IP on internet)
 // - amazon (if credentials are provided)
 // TODO: should return a warning, or info, not an error.
-func NewDefaultFetcher() (DefaultFetcher, error) {
+func NewDefaultFetcher(otherFetchers ...Fetcher) (DefaultFetcher, error) {
 	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher, IGalerieFetcher}
+	for _, f := range otherFetchers {
+		fetchers = append(fetchers, f)
+	}
 	amazonFetcher, err := newAmazonURLFetcher()
 	if err != nil {
 		return DefaultFetcher{fetchers: fetchers}, err

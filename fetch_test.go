@@ -101,6 +101,16 @@ func TestDefaultFetchers(t *testing.T) {
 		p.ImageURL != "http://90.80.54.225/albums/Permanent/LOGIDIS2/8714789941011.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
+
+	p, err = localProductDB.Fetch("ean_test", blacklistDB)
+	if err != nil {
+		t.Error(err)
+	} else if p.Name != "name_test" || p.EAN != "ean_test" ||
+		p.URL != "" ||
+		p.WebsiteURL != "" || p.WebsiteName != "website_name_test" ||
+		p.ImageURL != "" {
+		t.Errorf("Some attributes are invalid for: %v", p)
+	}
 }
 
 func TestDefaultFetcher(t *testing.T) {
