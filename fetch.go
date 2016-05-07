@@ -43,6 +43,26 @@ func (p Product) JSON() ([]byte, error) {
 	return json.Marshal(p)
 }
 
+// UpcItemDbFetcher for upcitemdb.com
+var UpcItemDbFetcher = upcItemDbURL{URL: "http://www.upcitemdb.com/upc/%s", WebsiteName: "UPCItemDB"}
+
+// https://starrymart.co.uk/catalogsearch/result/?q=4897878100026
+
+// OpenFoodFactsFetcher for openfoodfacts.org (using json api)
+var OpenFoodFactsFetcher = openFoodFactsURL{URL: "http://fr.openfoodfacts.org/api/v0/produit/%s.json", WebsiteName: "OpenFoodFacts"}
+
+// IsbnSearchFetcher for isbnsearch.org (using json api)
+var IsbnSearchFetcher = isbnSearchURL{URL: "http://www.isbnsearch.org/isbn/%s", WebsiteName: "ISBNSearch"}
+
+// IGalerieFetcher for some unknown website: http://90.80.54.225/?img=161277&images=1859
+var IGalerieFetcher = iGalerieFetcher{URL: "http://90.80.54.225/?search=%s", WebsiteName: "90.80.54.225"}
+
+// IsbnSearchFetcher for isbnsearch.org (using json api)
+var StarrymartFetcher = starrymartURL{URL: "https://starrymart.co.uk/catalogsearch/result/?q=%s", WebsiteName: "StarryMart"}
+
+// AmazonFetcher for amazon associate (using xml api)
+var AmazonFetcher amazonURL
+
 type BlacklistDB interface {
 	Contains(url string) (bool, error)
 	Add(url string) error
@@ -131,49 +151,6 @@ func fetchURL(url string) ([]byte, error) {
 	}
 }
 
-type upcItemDbURL FetchableURL
-
-// UpcItemDbFetcher for upcitemdb.com
-var UpcItemDbFetcher = upcItemDbURL{URL: "http://www.upcitemdb.com/upc/%s", WebsiteName: "UPCItemDB"}
-
-type openFoodFactsURL FetchableURL
-
-// OpenFoodFactsFetcher for openfoodfacts.org (using json api)
-var OpenFoodFactsFetcher = openFoodFactsURL{URL: "http://fr.openfoodfacts.org/api/v0/produit/%s.json", WebsiteName: "OpenFoodFacts"}
-
-type isbnSearchURL FetchableURL
-
-// IsbnSearchFetcher for isbnsearch.org (using json api)
-var IsbnSearchFetcher = isbnSearchURL{URL: "http://www.isbnsearch.org/isbn/%s", WebsiteName: "ISBNSearch"}
-
-type iGalerieFetcher FetchableURL
-
-// IGalerieFetcher for some unknown website: http://90.80.54.225/?img=161277&images=1859
-var IGalerieFetcher = iGalerieFetcher{URL: "http://90.80.54.225/?search=%s", WebsiteName: "90.80.54.225"}
-
-type amazonURL struct {
-	endPoint                           string
-	WebsiteName                        string
-	AccessKey, SecretKey, AssociateTag string
-}
-
-// AmazonFetcher for amazon associate (using xml api)
-var AmazonFetcher amazonURL
-
-func newAmazonURLFetcher() (amazonURL, error) {
-	fetcher := amazonURL{}
-	var accessOk, secretOk, associateTagOk bool
-	fetcher.AccessKey, accessOk = os.LookupEnv("RECYCLEME_ACCESS_KEY")
-	fetcher.SecretKey, secretOk = os.LookupEnv("RECYCLEME_SECRET_KEY")
-	fetcher.AssociateTag, associateTagOk = os.LookupEnv("RECYCLEME_ASSOCIATE_TAG")
-	if accessOk && secretOk && associateTagOk {
-		fetcher.endPoint = "webservices.amazon.fr"
-		fetcher.WebsiteName = "Amazon.fr"
-		return fetcher, nil
-	}
-	return fetcher, errors.New("Missing either RECYCLEME_ACCESS_KEY, RECYCLEME_SECRET_KEY or RECYCLEME_ASSOCIATE_TAG in environment. AmazonFetcher will not be used")
-}
-
 type innerFetchFunc func() (Product, error)
 
 func withCheckInBlacklist(b BlacklistDB, ean, url string, fn innerFetchFunc) (Product, error) {
@@ -189,6 +166,8 @@ func withCheckInBlacklist(b BlacklistDB, ean, url string, fn innerFetchFunc) (Pr
 	}
 	return p, nil
 }
+
+type iGalerieFetcher FetchableURL
 
 func (f iGalerieFetcher) Fetch(ean string, db BlacklistDB) (Product, error) {
 	url := fullURL(f.URL, ean)
@@ -273,6 +252,8 @@ func (f iGalerieFetcher) IsURLValidForEAN(url, ean string) bool {
 	return fullURL(f.URL, ean) == url
 }
 
+type upcItemDbURL FetchableURL
+
 func (f upcItemDbURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	url := fullURL(f.URL, ean)
 	return withCheckInBlacklist(db, ean, url, func() (Product, error) {
@@ -312,7 +293,7 @@ func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 				case "p":
 					if len(c.Attr) == 1 {
 						classAttr := c.Attr[0]
-						if classAttr.Val == "detailtitle" {
+						if classAttr.Val == "detailtitle" && c.FirstChild != nil && c.FirstChild.NextSibling != nil && c.FirstChild.NextSibling.FirstChild != nil {
 							txt := c.FirstChild.NextSibling.FirstChild
 							if txt.Type == html.TextNode {
 								p.Name = txt.Data
@@ -344,6 +325,8 @@ func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 	}
 	return p, nil
 }
+
+type openFoodFactsURL FetchableURL
 
 func (f openFoodFactsURL) IsURLValidForEAN(url, ean string) bool {
 	return fullURL(f.URL, ean) == url
@@ -399,6 +382,8 @@ func (f openFoodFactsURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	})
 }
 
+type isbnSearchURL FetchableURL
+
 func (f isbnSearchURL) IsURLValidForEAN(url, ean string) bool {
 	return fullURL(f.URL, ean) == url
 }
@@ -412,7 +397,7 @@ func (f isbnSearchURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 		}
 		p, err := f.parseBody(body)
 		if err != nil {
-			return p, fmt.Errorf("could not extract data from html page")
+			return p, err
 		}
 		p.EAN = ean
 		p.URL = url
@@ -495,6 +480,26 @@ type amazonItem struct {
 	SmallImageURL  string `xml:"SmallImage>URL"`
 	MediumImageURL string `xml:"MediumImage>URL"`
 	LargeImageURL  string `xml:"LargeImage>URL"`
+}
+
+type amazonURL struct {
+	endPoint                           string
+	WebsiteName                        string
+	AccessKey, SecretKey, AssociateTag string
+}
+
+func newAmazonURLFetcher() (amazonURL, error) {
+	fetcher := amazonURL{}
+	var accessOk, secretOk, associateTagOk bool
+	fetcher.AccessKey, accessOk = os.LookupEnv("RECYCLEME_ACCESS_KEY")
+	fetcher.SecretKey, secretOk = os.LookupEnv("RECYCLEME_SECRET_KEY")
+	fetcher.AssociateTag, associateTagOk = os.LookupEnv("RECYCLEME_ASSOCIATE_TAG")
+	if accessOk && secretOk && associateTagOk {
+		fetcher.endPoint = "webservices.amazon.fr"
+		fetcher.WebsiteName = "Amazon.fr"
+		return fetcher, nil
+	}
+	return fetcher, errors.New("Missing either RECYCLEME_ACCESS_KEY, RECYCLEME_SECRET_KEY or RECYCLEME_ASSOCIATE_TAG in environment. AmazonFetcher will not be used")
 }
 
 func (f amazonURL) IsURLValidForEAN(url, ean string) bool {
@@ -603,6 +608,85 @@ func (db mgoLocalProductDB) IsURLValidForEAN(url, ean string) bool {
 	return db.fullURL(ean) == url
 }
 
+type starrymartURL FetchableURL
+
+func (f starrymartURL) Fetch(ean string, db BlacklistDB) (Product, error) {
+	url := fullURL(f.URL, ean)
+	return withCheckInBlacklist(db, ean, url, func() (Product, error) {
+		body, err := fetchURL(url)
+		if err != nil {
+			return Product{}, err
+		}
+		p, err := f.parseBody(body)
+		if err != nil {
+			return p, err
+		}
+		p.EAN = ean
+		p.URL = url
+		p.WebsiteName = f.WebsiteName
+		return p, nil
+	})
+}
+
+func (f starrymartURL) parseBody(b []byte) (Product, error) {
+	doc, err := html.Parse(bytes.NewReader(b))
+	p := Product{}
+	if err != nil {
+		return p, err
+	}
+	var fn func(*html.Node)
+	fn = func(n *html.Node) {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			// Looking for <div class="bookinfo"><h2>$PRODUCT_NAME</h2></div>
+			if c.Type == html.ElementNode {
+				switch c.Data {
+				case "div":
+					if len(c.Attr) == 1 && c.Attr[0].Key == "class" && c.Attr[0].Val == "item-img-info" {
+						if c.FirstChild != nil && c.FirstChild.NextSibling != nil {
+							a := c.FirstChild.NextSibling
+							for i := range a.Attr {
+								params := a.Attr[i]
+								switch params.Key {
+								case "href":
+									p.WebsiteURL = params.Val
+								case "title":
+									p.Name = params.Val
+								}
+
+							}
+							if a.FirstChild != nil && a.FirstChild.NextSibling != nil && a.FirstChild.NextSibling.FirstChild != nil && a.FirstChild.NextSibling.FirstChild.NextSibling != nil {
+								img := a.FirstChild.NextSibling.FirstChild.NextSibling
+								for i := range img.Attr {
+									params := img.Attr[i]
+									switch params.Key {
+									case "src":
+										p.ImageURL = params.Val
+
+									}
+								}
+							}
+						}
+						return
+					} else {
+						fn(c)
+					}
+				default:
+					fn(c)
+				}
+			}
+		}
+	}
+	fn(doc)
+	if p.Name == "" {
+		return p, errNotFound
+	}
+	return p, nil
+}
+
+func (f starrymartURL) IsURLValidForEAN(url, ean string) bool {
+	return fullURL(f.URL, ean) == url
+}
+
 type DefaultFetcher struct {
 	fetchers []Fetcher
 }
@@ -614,9 +698,10 @@ type DefaultFetcher struct {
 // - isbnsearch
 // - iGalerie (some random IP on internet)
 // - amazon (if credentials are provided)
+// - more fetchers are provided as arguments
 // TODO: should return a warning, or info, not an error.
 func NewDefaultFetcher(otherFetchers ...Fetcher) (DefaultFetcher, error) {
-	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher, IGalerieFetcher}
+	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher, IGalerieFetcher, StarrymartFetcher}
 	for _, f := range otherFetchers {
 		fetchers = append(fetchers, f)
 	}

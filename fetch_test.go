@@ -111,6 +111,17 @@ func TestDefaultFetchers(t *testing.T) {
 		p.ImageURL != "" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
+
+	p, err = StarrymartFetcher.Fetch("4897878100026", blacklistDB)
+	if err != nil {
+		t.Error(err)
+	} else if p.Name != "Nissin Cup Noodles Beef Flavour 75g" || p.EAN != "4897878100026" ||
+		p.URL != "https://starrymart.co.uk/catalogsearch/result/?q=4897878100026" ||
+		p.WebsiteURL != "https://starrymart.co.uk/nissin-cup-noodle-beef.html" ||
+		p.ImageURL != "https://starrymart.co.uk/media/catalog/product/cache/1/small_image/202x303/9df78eab33525d08d6e5fb8d27136e95/4/8/4897878100026_5.jpg" {
+		t.Errorf("Some attributes are invalid for: %v", p)
+	}
+
 }
 
 func TestDefaultFetcher(t *testing.T) {
