@@ -14,11 +14,13 @@ import (
 	"testing"
 )
 
-func (f FetchableURL) Fetch(ean string, db BlacklistDB) (Product, error) {
+type testFetcher FetchableURL
+
+func (f testFetcher) Fetch(ean string, db BlacklistDB) (Product, error) {
 	return Product{Name: "TEST", URL: fullURL(f.URL, ean), WebsiteName: f.WebsiteName, EAN: ean}, nil
 }
 
-func (f FetchableURL) IsURLValidForEAN(url, ean string) bool {
+func (f testFetcher) IsURLValidForEAN(url, ean string) bool {
 	return fullURL(f.URL, ean) == url
 }
 
@@ -117,7 +119,7 @@ func TestThrowAwayHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nopFetcher := FetchableURL{URL: "http://www.example.com/%s/", WebsiteName: "Example.com"}
+	nopFetcher := testFetcher{URL: "http://www.example.com/%s/", WebsiteName: "Example.com"}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ThrowAwayHandler(packageDB, blacklistDB, w, r, nopFetcher)
 	})

@@ -44,21 +44,19 @@ func (p Product) JSON() ([]byte, error) {
 }
 
 // UpcItemDbFetcher for upcitemdb.com
-var UpcItemDbFetcher = upcItemDbURL{URL: "http://www.upcitemdb.com/upc/%s", WebsiteName: "UPCItemDB"}
-
-// https://starrymart.co.uk/catalogsearch/result/?q=4897878100026
+var UpcItemDbFetcher = FetchableURL{URL: "http://www.upcitemdb.com/upc/%s", WebsiteName: "UPCItemDB", HTMLParser: upcItemDbParser{}}
 
 // OpenFoodFactsFetcher for openfoodfacts.org (using json api)
-var OpenFoodFactsFetcher = openFoodFactsURL{URL: "http://fr.openfoodfacts.org/api/v0/produit/%s.json", WebsiteName: "OpenFoodFacts"}
+var OpenFoodFactsFetcher = FetchableURL{URL: "http://fr.openfoodfacts.org/api/v0/produit/%s.json", WebsiteName: "OpenFoodFacts", HTMLParser: openFoodFactsParser{}}
 
 // IsbnSearchFetcher for isbnsearch.org (using json api)
-var IsbnSearchFetcher = isbnSearchURL{URL: "http://www.isbnsearch.org/isbn/%s", WebsiteName: "ISBNSearch"}
+var IsbnSearchFetcher = FetchableURL{URL: "http://www.isbnsearch.org/isbn/%s", WebsiteName: "ISBNSearch", HTMLParser: isbnSearchParser{}}
 
 // IGalerieFetcher for some unknown website: http://90.80.54.225/?img=161277&images=1859
-var IGalerieFetcher = iGalerieFetcher{URL: "http://90.80.54.225/?search=%s", WebsiteName: "90.80.54.225"}
+var IGalerieFetcher = FetchableURL{URL: "http://90.80.54.225/?search=%s", WebsiteName: "90.80.54.225", HTMLParser: iGalerieParser{baseURL: "http://90.80.54.225/"}}
 
 // IsbnSearchFetcher for isbnsearch.org (using json api)
-var StarrymartFetcher = starrymartURL{URL: "https://starrymart.co.uk/catalogsearch/result/?q=%s", WebsiteName: "StarryMart"}
+var StarrymartFetcher = FetchableURL{URL: "https://starrymart.co.uk/catalogsearch/result/?q=%s", WebsiteName: "StarryMart", HTMLParser: starrymartParser{}}
 
 // AmazonFetcher for amazon associate (using xml api)
 var AmazonFetcher amazonURL
@@ -108,12 +106,17 @@ type Fetcher interface {
 	IsURLValidForEAN(url, ean string) bool
 }
 
+type HTMLParser interface {
+	ParseBody(b []byte) (Product, error)
+}
+
 // FetchableURL is a base struct to fetch websites
 // URL that can be used by fetchers, it must be a format string, the %s or %v will be replaced by the EAN
 // WebsiteName is the corporate name given to the website to be fetched, for prettier printing
 type FetchableURL struct {
 	URL         string
 	WebsiteName string
+	HTMLParser
 }
 
 // Create a new FetchableURL, checking that it contains the correct format to place the EAN in the URL
@@ -167,28 +170,34 @@ func withCheckInBlacklist(b BlacklistDB, ean, url string, fn innerFetchFunc) (Pr
 	return p, nil
 }
 
-type iGalerieFetcher FetchableURL
-
-func (f iGalerieFetcher) Fetch(ean string, db BlacklistDB) (Product, error) {
+func (f FetchableURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	url := fullURL(f.URL, ean)
 	return withCheckInBlacklist(db, ean, url, func() (Product, error) {
 		body, err := fetchURL(url)
 		if err != nil {
 			return Product{}, err
 		}
-		p, err := f.parseBody(body)
+		p, err := f.ParseBody(body)
 		if err != nil {
 			return p, err
 		}
 		p.EAN = ean
 		p.URL = url
-		p.WebsiteURL = url
+		if p.WebsiteURL == "" {
+			p.WebsiteURL = url
+		}
 		p.WebsiteName = f.WebsiteName
 		return p, nil
 	})
 }
 
-func (f iGalerieFetcher) parseBody(b []byte) (Product, error) {
+func (f FetchableURL) IsURLValidForEAN(url, ean string) bool {
+	return fullURL(f.URL, ean) == url
+}
+
+type iGalerieParser struct{ baseURL string }
+
+func (f iGalerieParser) ParseBody(b []byte) (Product, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
 	p := Product{}
 	if err != nil {
@@ -225,7 +234,7 @@ func (f iGalerieFetcher) parseBody(b []byte) (Product, error) {
 							if attr.Key == "style" && isProduct && len(p.ImageURL) == 0 && strings.Contains(attr.Val, "background:url") {
 								imageURL := strings.Replace(attr.Val, "background:url(/getimg.php?img=", "", 1)
 								imageURL = strings.Replace(imageURL, ") no-repeat center", "", 1)
-								imageURL = strings.Split(f.URL, "?")[0] + "albums/" + imageURL
+								imageURL = strings.Split(f.baseURL, "?")[0] + "albums/" + imageURL
 								p.ImageURL = imageURL
 							}
 						}
@@ -248,36 +257,9 @@ func (f iGalerieFetcher) parseBody(b []byte) (Product, error) {
 	return p, nil
 }
 
-func (f iGalerieFetcher) IsURLValidForEAN(url, ean string) bool {
-	return fullURL(f.URL, ean) == url
-}
+type upcItemDbParser struct{}
 
-type upcItemDbURL FetchableURL
-
-func (f upcItemDbURL) Fetch(ean string, db BlacklistDB) (Product, error) {
-	url := fullURL(f.URL, ean)
-	return withCheckInBlacklist(db, ean, url, func() (Product, error) {
-		body, err := fetchURL(url)
-		if err != nil {
-			return Product{}, err
-		}
-		p, err := f.parseBody(body)
-		if err != nil {
-			return p, err
-		}
-		p.EAN = ean
-		p.URL = url
-		p.WebsiteURL = url
-		p.WebsiteName = f.WebsiteName
-		return p, nil
-	})
-}
-
-func (f upcItemDbURL) IsURLValidForEAN(url, ean string) bool {
-	return fullURL(f.URL, ean) == url
-}
-
-func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
+func (f upcItemDbParser) ParseBody(b []byte) (Product, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
 	p := Product{}
 	if err != nil {
@@ -326,88 +308,35 @@ func (f upcItemDbURL) parseBody(b []byte) (Product, error) {
 	return p, nil
 }
 
-type openFoodFactsURL FetchableURL
-
-func (f openFoodFactsURL) IsURLValidForEAN(url, ean string) bool {
-	return fullURL(f.URL, ean) == url
+type openFoodFactsParser struct{}
+type openFoodFactsJSON struct {
+	EAN     string `json:"code"`
+	Product struct {
+		Name     string `json:"product_name"`
+		ImageURL string `json:"image_front_url"`
+	}
+	Status int `json:"status"`
 }
 
-func (f openFoodFactsURL) Fetch(ean string, db BlacklistDB) (Product, error) {
-	url := fullURL(f.URL, ean)
-	return withCheckInBlacklist(db, ean, url, func() (Product, error) {
-		p := Product{}
-		body, err := fetchURL(url)
-		if err != nil {
-			return Product{}, err
-		}
-		var v interface{}
-		err = json.Unmarshal(body, &v)
-		if err != nil {
-			return p, err
-		}
-
-		m := v.(map[string]interface{})
-		if status := m["status"].(float64); status != 1. {
-			// 1 == product found
-			return p, errNotFound
-		}
-		productIntf, ok := m["product"]
-		if !ok {
-			return p, fmt.Errorf("no product field found in json")
-		}
-		product, ok := productIntf.(map[string]interface{})
-		if !ok {
-			return p, fmt.Errorf("no product map found in json")
-		}
-		nameIntf, ok := product["product_name"]
-		if !ok {
-			return p, fmt.Errorf("no product_name field found in json")
-		}
-		name, ok := nameIntf.(string)
-		if !ok {
-			return p, fmt.Errorf("product_name is not a string")
-		}
-		imageURLIntf, ok := product["image_front_url"]
-		var imageURL string
-		if !ok {
-			imageURL = ""
-		} else {
-			imageURL, ok = imageURLIntf.(string)
-			if !ok {
-				return p, fmt.Errorf("image_front_url is not a string")
-			}
-		}
-		websiteURL := fmt.Sprintf("http://fr.openfoodfacts.org/produit/%s/", ean)
-		return Product{URL: url, EAN: ean, Name: name, ImageURL: imageURL, WebsiteURL: websiteURL, WebsiteName: f.WebsiteName}, nil
-	})
+func (f openFoodFactsParser) ParseBody(body []byte) (Product, error) {
+	var v openFoodFactsJSON
+	p := Product{}
+	err := json.Unmarshal(body, &v)
+	if err != nil {
+		return p, err
+	}
+	if v.Status != 1 {
+		return p, errNotFound
+	}
+	p.Name = v.Product.Name
+	p.ImageURL = v.Product.ImageURL
+	p.WebsiteURL = fmt.Sprintf("http://fr.openfoodfacts.org/produit/%s/", v.EAN)
+	return p, nil
 }
 
-type isbnSearchURL FetchableURL
+type isbnSearchParser struct{}
 
-func (f isbnSearchURL) IsURLValidForEAN(url, ean string) bool {
-	return fullURL(f.URL, ean) == url
-}
-
-func (f isbnSearchURL) Fetch(ean string, db BlacklistDB) (Product, error) {
-	url := fullURL(f.URL, ean)
-	return withCheckInBlacklist(db, ean, url, func() (Product, error) {
-		body, err := fetchURL(url)
-		if err != nil {
-			return Product{}, err
-		}
-		p, err := f.parseBody(body)
-		if err != nil {
-			return p, err
-		}
-		p.EAN = ean
-		p.URL = url
-		p.WebsiteURL = url
-		p.WebsiteName = f.WebsiteName
-		return p, nil
-	})
-}
-
-func (f isbnSearchURL) parseBody(b []byte) (Product, error) {
+func (f isbnSearchParser) ParseBody(b []byte) (Product, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
 	p := Product{}
 	if err != nil {
@@ -608,27 +537,9 @@ func (db mgoLocalProductDB) IsURLValidForEAN(url, ean string) bool {
 	return db.fullURL(ean) == url
 }
 
-type starrymartURL FetchableURL
+type starrymartParser struct{}
 
-func (f starrymartURL) Fetch(ean string, db BlacklistDB) (Product, error) {
-	url := fullURL(f.URL, ean)
-	return withCheckInBlacklist(db, ean, url, func() (Product, error) {
-		body, err := fetchURL(url)
-		if err != nil {
-			return Product{}, err
-		}
-		p, err := f.parseBody(body)
-		if err != nil {
-			return p, err
-		}
-		p.EAN = ean
-		p.URL = url
-		p.WebsiteName = f.WebsiteName
-		return p, nil
-	})
-}
-
-func (f starrymartURL) parseBody(b []byte) (Product, error) {
+func (f starrymartParser) ParseBody(b []byte) (Product, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
 	p := Product{}
 	if err != nil {
@@ -639,8 +550,7 @@ func (f starrymartURL) parseBody(b []byte) (Product, error) {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			// Looking for <div class="bookinfo"><h2>$PRODUCT_NAME</h2></div>
 			if c.Type == html.ElementNode {
-				switch c.Data {
-				case "div":
+				if c.Data == "div" {
 					if len(c.Attr) == 1 && c.Attr[0].Key == "class" && c.Attr[0].Val == "item-img-info" {
 						if c.FirstChild != nil && c.FirstChild.NextSibling != nil {
 							a := c.FirstChild.NextSibling
@@ -667,12 +577,9 @@ func (f starrymartURL) parseBody(b []byte) (Product, error) {
 							}
 						}
 						return
-					} else {
-						fn(c)
 					}
-				default:
-					fn(c)
 				}
+				fn(c)
 			}
 		}
 	}
@@ -681,10 +588,6 @@ func (f starrymartURL) parseBody(b []byte) (Product, error) {
 		return p, errNotFound
 	}
 	return p, nil
-}
-
-func (f starrymartURL) IsURLValidForEAN(url, ean string) bool {
-	return fullURL(f.URL, ean) == url
 }
 
 type DefaultFetcher struct {

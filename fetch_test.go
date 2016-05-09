@@ -136,8 +136,9 @@ func TestDefaultFetcher(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = fetcher.Fetch("7640140337517", blacklistDB)
+	// Fake EAN, should return an error
+	_, err = fetcher.Fetch("4012345123456", blacklistDB)
 	if err == nil {
-		t.Fatal(err)
+		t.Fatal("Error should not be nil")
 	}
 }
