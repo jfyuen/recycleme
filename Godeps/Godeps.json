@@ -20,6 +20,26 @@
 			"Rev": "d9558e5c97f85372afee28cf2b6059d7d3818919"
 		},
 		{
+			"ImportPath": "golang.org/x/text/encoding",
+			"Rev": "f773ec03ce334298742df7f3108fc0d402646d22"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding/charmap",
+			"Rev": "f773ec03ce334298742df7f3108fc0d402646d22"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding/internal",
+			"Rev": "f773ec03ce334298742df7f3108fc0d402646d22"
+		},
+		{
+			"ImportPath": "golang.org/x/text/encoding/internal/identifier",
+			"Rev": "f773ec03ce334298742df7f3108fc0d402646d22"
+		},
+		{
+			"ImportPath": "golang.org/x/text/transform",
+			"Rev": "f773ec03ce334298742df7f3108fc0d402646d22"
+		},
+		{
 			"ImportPath": "gopkg.in/mgo.v2",
 			"Comment": "r2016.02.04-1-gb6e2fa3",
 			"Rev": "b6e2fa371e64216a45e61072a96d4e3859f169da"

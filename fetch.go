@@ -18,6 +18,7 @@ import (
 
 	eancheck "github.com/nicholassm/go-ean"
 	"golang.org/x/net/html"
+	"golang.org/x/text/encoding/charmap"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -44,19 +45,22 @@ func (p Product) JSON() ([]byte, error) {
 }
 
 // UpcItemDbFetcher for upcitemdb.com
-var UpcItemDbFetcher = FetchableURL{URL: "http://www.upcitemdb.com/upc/%s", WebsiteName: "UPCItemDB", HTMLParser: upcItemDbParser{}}
+var UpcItemDbFetcher, _ = NewFetchableURL("http://www.upcitemdb.com/upc/%s", "UPCItemDB", upcItemDbParser{})
 
 // OpenFoodFactsFetcher for openfoodfacts.org (using json api)
-var OpenFoodFactsFetcher = FetchableURL{URL: "http://fr.openfoodfacts.org/api/v0/produit/%s.json", WebsiteName: "OpenFoodFacts", HTMLParser: openFoodFactsParser{}}
+var OpenFoodFactsFetcher, _ = NewFetchableURL("http://fr.openfoodfacts.org/api/v0/produit/%s.json", "OpenFoodFacts", openFoodFactsParser{})
 
 // IsbnSearchFetcher for isbnsearch.org (using json api)
-var IsbnSearchFetcher = FetchableURL{URL: "http://www.isbnsearch.org/isbn/%s", WebsiteName: "ISBNSearch", HTMLParser: isbnSearchParser{}}
+var IsbnSearchFetcher, _ = NewFetchableURL("http://www.isbnsearch.org/isbn/%s", "ISBNSearch", isbnSearchParser{})
 
 // IGalerieFetcher for some unknown website: http://90.80.54.225/?img=161277&images=1859
-var IGalerieFetcher = FetchableURL{URL: "http://90.80.54.225/?search=%s", WebsiteName: "90.80.54.225", HTMLParser: iGalerieParser{baseURL: "http://90.80.54.225/"}}
+var IGalerieFetcher, _ = NewFetchableURL("http://90.80.54.225/?search=%s", "90.80.54.225", iGalerieParser{baseURL: "http://90.80.54.225/"})
 
-// IsbnSearchFetcher for isbnsearch.org (using json api)
-var StarrymartFetcher = FetchableURL{URL: "https://starrymart.co.uk/catalogsearch/result/?q=%s", WebsiteName: "StarryMart", HTMLParser: starrymartParser{}}
+// StarrymartFetcher for starrymart.co.uk
+var StarrymartFetcher, _ = NewFetchableURL("https://starrymart.co.uk/catalogsearch/result/?q=%s", "StarryMart", starrymartParser{})
+
+// MisterPharmaWebFetcher for misterpharmaweb.com
+var MisterPharmaWebFetcher, _ = NewFetchableURL("http://www.misterpharmaweb.com/recherche-resultats.php?search_in_description=1&ac_keywords=%s", "MisterPharmaWeb", misterPharmaWebParser{baseURL: "http://www.misterpharmaweb.com/"})
 
 // AmazonFetcher for amazon associate (using xml api)
 var AmazonFetcher amazonURL
@@ -120,12 +124,12 @@ type FetchableURL struct {
 }
 
 // Create a new FetchableURL, checking that it contains the correct format to place the EAN in the URL
-func NewFetchableURL(url string, website string) (FetchableURL, error) {
+func NewFetchableURL(url string, website string, parser HTMLParser) (FetchableURL, error) {
 	if !strings.Contains(url, "%s") && !strings.Contains(url, "%v") {
 		return FetchableURL{}, fmt.Errorf("URL %v does not containt format string to insert EAN", url)
 	}
 
-	return FetchableURL{URL: url, WebsiteName: website}, nil
+	return FetchableURL{URL: url, WebsiteName: website, HTMLParser: parser}, nil
 }
 
 func fullURL(url, ean string) string {
@@ -590,21 +594,72 @@ func (f starrymartParser) ParseBody(b []byte) (Product, error) {
 	return p, nil
 }
 
+type misterPharmaWebParser struct {
+	baseURL string
+}
+
+func (f misterPharmaWebParser) ParseBody(b []byte) (Product, error) {
+	charsetReader := charmap.ISO8859_1.NewDecoder().Reader(bytes.NewReader(b))
+	doc, err := html.Parse(charsetReader) // charset is ISO-8859-1
+	p := Product{}
+	if err != nil {
+		return p, err
+	}
+	var fn func(*html.Node)
+	fn = func(n *html.Node) {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			// Looking for <div class="bookinfo"><h2>$PRODUCT_NAME</h2></div>
+			if c.Type == html.ElementNode {
+				if c.Data == "img" {
+					isProduct := false
+					for _, attr := range c.Attr {
+						if attr.Key == "class" && attr.Val == "lazy" {
+							isProduct = true
+						} else if !isProduct {
+							break
+						}
+						if attr.Key == "data-src" && isProduct && len(p.ImageURL) == 0 {
+							p.ImageURL = f.baseURL + attr.Val
+						}
+						if attr.Key == "alt" && isProduct && len(p.Name) == 0 {
+							p.Name = attr.Val
+						}
+					}
+					if p.Name != "" && isProduct {
+						if len(c.Parent.Attr) == 1 && c.Parent.Attr[0].Key == "href" {
+							p.WebsiteURL = c.Parent.Attr[0].Val
+						}
+						return
+					}
+				}
+				fn(c)
+			}
+		}
+	}
+	fn(doc)
+	if p.Name == "" {
+		return p, errNotFound
+	}
+	return p, nil
+}
+
 type DefaultFetcher struct {
 	fetchers []Fetcher
 }
 
 // NewDefaultFetcher fetches data from a list of default fetchers already implemented.
-// Currently supported websited:
+// Currently supported websites:
 // - upcitemdb
 // - openfoodfacts
 // - isbnsearch
 // - iGalerie (some random IP on internet)
 // - amazon (if credentials are provided)
-// - more fetchers are provided as arguments
+// - StarryMart
+// - MisterPharmaWeb
+// - more fetchers are provided as arguments (local database, ...)
 // TODO: should return a warning, or info, not an error.
 func NewDefaultFetcher(otherFetchers ...Fetcher) (DefaultFetcher, error) {
-	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher, IGalerieFetcher, StarrymartFetcher}
+	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher, IGalerieFetcher, StarrymartFetcher, MisterPharmaWebFetcher}
 	for _, f := range otherFetchers {
 		fetchers = append(fetchers, f)
 	}

@@ -122,6 +122,15 @@ func TestDefaultFetchers(t *testing.T) {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 
+	p, err = MisterPharmaWebFetcher.Fetch("3400937688369", blacklistDB)
+	if err != nil {
+		t.Error(err)
+	} else if p.Name != "HUMEX ALLERGIE CETIRIZINE 10 mg, comprimé pelliculé sécable" || p.EAN != "3400937688369" ||
+		p.URL != "http://www.misterpharmaweb.com/recherche-resultats.php?search_in_description=1&ac_keywords=3400937688369" ||
+		p.WebsiteURL != "http://www.misterpharmaweb.com/humex-allergie-cetirizine-10-mg-comprime-pellicule-secable-xml-351_365-2807.html" ||
+		p.ImageURL != "http://www.misterpharmaweb.com/images/imagecache/cetir_1425058129_180x180.jpg" {
+		t.Errorf("Some attributes are invalid for: %v", p)
+	}
 }
 
 func TestDefaultFetcher(t *testing.T) {
