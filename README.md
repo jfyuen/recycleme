@@ -19,6 +19,9 @@ The following websites are currently scrapped:
 - http://openfoodfacts.org
 - http://www.upcitemdb.com
 - http://www.isbnsearch.org
+- http://90.80.54.225
+- https://starrymart.co.uk
+- http://www.misterpharmaweb.com
 
 Moreover, http://www.amazon.fr (on french portal) is supported via their Product Advertising API, given the following credentials are set in the environment:
 - RECYCLEME_ACCESS_KEY
@@ -41,6 +44,7 @@ The following environment variables are necessary to receive mails from the app:
 - RECYCLEME_MAIL_USERNAME
 - RECYCLEME_MAIL_PASSWORD
 
+On mobile phones, photo can be used to scan bar codes.
 
 ## Heroku deployment
 
