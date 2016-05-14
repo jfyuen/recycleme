@@ -22,6 +22,7 @@ The following websites are currently scrapped:
 - http://90.80.54.225
 - https://starrymart.co.uk
 - http://www.misterpharmaweb.com
+- http://www.meddispar.fr/
 
 Moreover, http://www.amazon.fr (on french portal) is supported via their Product Advertising API, given the following credentials are set in the environment:
 - RECYCLEME_ACCESS_KEY

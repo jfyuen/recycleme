@@ -131,6 +131,16 @@ func TestDefaultFetchers(t *testing.T) {
 		p.ImageURL != "http://www.misterpharmaweb.com/images/imagecache/cetir_1425058129_180x180.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
+
+	p, err = MedisparFetcher.Fetch("3400936864986", blacklistDB)
+	if err != nil {
+		t.Error(err)
+	} else if p.Name != "NUROFEN 400mg CPR ENR B/12" || p.EAN != "3400936864986" ||
+		p.URL != "http://www.meddispar.fr/content/search?search_by_name=&search_by_cip=3400936864986" ||
+		p.WebsiteURL != "http://www.meddispar.fr/Medicaments/NUROFEN-400-B-12/(type)/cip/(value)/3400936864986" ||
+		p.ImageURL != "" {
+		t.Errorf("Some attributes are invalid for: %v", p)
+	}
 }
 
 func TestDefaultFetcher(t *testing.T) {

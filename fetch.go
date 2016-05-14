@@ -61,6 +61,7 @@ var StarrymartFetcher, _ = NewFetchableURL("https://starrymart.co.uk/catalogsear
 
 // MisterPharmaWebFetcher for misterpharmaweb.com
 var MisterPharmaWebFetcher, _ = NewFetchableURL("http://www.misterpharmaweb.com/recherche-resultats.php?search_in_description=1&ac_keywords=%s", "MisterPharmaWeb", misterPharmaWebParser{baseURL: "http://www.misterpharmaweb.com/"})
+var MedisparFetcher, _ = NewFetchableURL("http://www.meddispar.fr/content/search?search_by_name=&search_by_cip=%s", "Medispar", medisparParser{baseURL: "http://www.meddispar.fr"})
 
 // AmazonFetcher for amazon associate (using xml api)
 var AmazonFetcher amazonURL
@@ -643,6 +644,58 @@ func (f misterPharmaWebParser) ParseBody(b []byte) (Product, error) {
 	return p, nil
 }
 
+type medisparParser struct {
+	baseURL string
+}
+
+func (f medisparParser) ParseBody(b []byte) (Product, error) {
+	charsetReader := charmap.ISO8859_1.NewDecoder().Reader(bytes.NewReader(b))
+	doc, err := html.Parse(charsetReader) // charset is ISO-8859-1
+	p := Product{}
+	if err != nil {
+		return p, err
+	}
+	var fn func(*html.Node)
+	fn = func(n *html.Node) {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			// Looking for <div class="bookinfo"><h2>$PRODUCT_NAME</h2></div>
+			if c.Type == html.ElementNode {
+				if c.Data == "a" {
+					isProduct := false
+					name := ""
+					url := ""
+					for _, attr := range c.Attr {
+						if attr.Key == "class" && attr.Val == "drug_title" {
+							isProduct = true
+						}
+						if attr.Key == "title" {
+							name = strings.Replace(attr.Val, "  ", " ", -1)
+							name = strings.Replace(name, "\n", "", -1)
+						}
+						if attr.Key == "href" {
+							url = attr.Val
+						}
+					}
+					if isProduct && name != "" && url != "" {
+						p.Name = name
+						if !strings.Contains(url, "http") {
+							url = f.baseURL + url
+						}
+						p.WebsiteURL = url
+						return
+					}
+				}
+				fn(c)
+			}
+		}
+	}
+	fn(doc)
+	if p.Name == "" {
+		return p, errNotFound
+	}
+	return p, nil
+}
+
 type DefaultFetcher struct {
 	fetchers []Fetcher
 }
@@ -656,10 +709,11 @@ type DefaultFetcher struct {
 // - amazon (if credentials are provided)
 // - StarryMart
 // - MisterPharmaWeb
+// - Meddispar
 // - more fetchers are provided as arguments (local database, ...)
 // TODO: should return a warning, or info, not an error.
 func NewDefaultFetcher(otherFetchers ...Fetcher) (DefaultFetcher, error) {
-	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher, IGalerieFetcher, StarrymartFetcher, MisterPharmaWebFetcher}
+	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher, IGalerieFetcher, StarrymartFetcher, MisterPharmaWebFetcher, MedisparFetcher}
 	for _, f := range otherFetchers {
 		fetchers = append(fetchers, f)
 	}
