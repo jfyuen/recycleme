@@ -23,6 +23,7 @@ The following websites are currently scrapped:
 - https://starrymart.co.uk
 - http://www.misterpharmaweb.com
 - http://www.meddispar.fr/
+- http://www.digit-eyes.com
 
 Moreover, http://www.amazon.fr (on french portal) is supported via their Product Advertising API, given the following credentials are set in the environment:
 - RECYCLEME_ACCESS_KEY

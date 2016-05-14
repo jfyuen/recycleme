@@ -61,10 +61,12 @@ var StarrymartFetcher, _ = NewFetchableURL("https://starrymart.co.uk/catalogsear
 
 // MisterPharmaWebFetcher for misterpharmaweb.com
 var MisterPharmaWebFetcher, _ = NewFetchableURL("http://www.misterpharmaweb.com/recherche-resultats.php?search_in_description=1&ac_keywords=%s", "MisterPharmaWeb", misterPharmaWebParser{baseURL: "http://www.misterpharmaweb.com/"})
+
+// MedisparFetcher for meddispar.fr
 var MedisparFetcher, _ = NewFetchableURL("http://www.meddispar.fr/content/search?search_by_name=&search_by_cip=%s", "Medispar", medisparParser{baseURL: "http://www.meddispar.fr"})
 
-// AmazonFetcher for amazon associate (using xml api)
-var AmazonFetcher amazonURL
+// DigitEyesFetcher for digit-eyes.com
+var DigitEyesFetcher, _ = NewFetchableURL("http://www.digit-eyes.com/upcCode/%s.html", "Digit-Eyes", digitEyesParser{})
 
 type BlacklistDB interface {
 	Contains(url string) (bool, error)
@@ -553,7 +555,6 @@ func (f starrymartParser) ParseBody(b []byte) (Product, error) {
 	var fn func(*html.Node)
 	fn = func(n *html.Node) {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			// Looking for <div class="bookinfo"><h2>$PRODUCT_NAME</h2></div>
 			if c.Type == html.ElementNode {
 				if c.Data == "div" {
 					if len(c.Attr) == 1 && c.Attr[0].Key == "class" && c.Attr[0].Val == "item-img-info" {
@@ -609,7 +610,6 @@ func (f misterPharmaWebParser) ParseBody(b []byte) (Product, error) {
 	var fn func(*html.Node)
 	fn = func(n *html.Node) {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			// Looking for <div class="bookinfo"><h2>$PRODUCT_NAME</h2></div>
 			if c.Type == html.ElementNode {
 				if c.Data == "img" {
 					isProduct := false
@@ -658,7 +658,6 @@ func (f medisparParser) ParseBody(b []byte) (Product, error) {
 	var fn func(*html.Node)
 	fn = func(n *html.Node) {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			// Looking for <div class="bookinfo"><h2>$PRODUCT_NAME</h2></div>
 			if c.Type == html.ElementNode {
 				if c.Data == "a" {
 					isProduct := false
@@ -683,6 +682,43 @@ func (f medisparParser) ParseBody(b []byte) (Product, error) {
 						}
 						p.WebsiteURL = url
 						return
+					}
+				}
+				fn(c)
+			}
+		}
+	}
+	fn(doc)
+	if p.Name == "" {
+		return p, errNotFound
+	}
+	return p, nil
+}
+
+type digitEyesParser struct{}
+
+func (f digitEyesParser) ParseBody(b []byte) (Product, error) {
+	charsetReader := charmap.ISO8859_1.NewDecoder().Reader(bytes.NewReader(b))
+	doc, err := html.Parse(charsetReader) // charset is ISO-8859-1
+	p := Product{}
+	if err != nil {
+		return p, err
+	}
+	var fn func(*html.Node)
+	fn = func(n *html.Node) {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			if c.Type == html.ElementNode {
+				if c.Data == "img" {
+					imageURL := ""
+					for _, attr := range c.Attr {
+						if attr.Key == "src" {
+							imageURL = attr.Val
+						}
+						if attr.Key == "alt" && strings.Contains(attr.Val, "image of ") {
+							p.Name = strings.Replace(attr.Val, "image of ", "", -1)
+							p.ImageURL = imageURL
+							return
+						}
 					}
 				}
 				fn(c)
@@ -721,7 +757,6 @@ func NewDefaultFetcher(otherFetchers ...Fetcher) (DefaultFetcher, error) {
 	if err != nil {
 		return DefaultFetcher{fetchers: fetchers}, err
 	}
-	AmazonFetcher = amazonFetcher
 	fetchers = append(fetchers, amazonFetcher)
 	return DefaultFetcher{fetchers: fetchers}, nil
 }

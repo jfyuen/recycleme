@@ -141,6 +141,16 @@ func TestDefaultFetchers(t *testing.T) {
 		p.ImageURL != "" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
+
+	p, err = DigitEyesFetcher.Fetch("3350033006737", blacklistDB)
+	if err != nil {
+		t.Error(err)
+	} else if p.Name != "Atomiseur D'eau Minerale" || p.EAN != "3350033006737" ||
+		p.URL != "http://www.digit-eyes.com/upcCode/3350033006737.html" ||
+		p.WebsiteURL != "http://www.digit-eyes.com/upcCode/3350033006737.html" ||
+		p.ImageURL != "https://www.digit-eyes.com/thumbs/233/033/3350033006737.jpg" {
+		t.Errorf("Some attributes are invalid for: %v", p)
+	}
 }
 
 func TestDefaultFetcher(t *testing.T) {
