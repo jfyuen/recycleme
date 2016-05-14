@@ -746,10 +746,11 @@ type DefaultFetcher struct {
 // - StarryMart
 // - MisterPharmaWeb
 // - Meddispar
+// - Digit-Eyes
 // - more fetchers are provided as arguments (local database, ...)
 // TODO: should return a warning, or info, not an error.
 func NewDefaultFetcher(otherFetchers ...Fetcher) (DefaultFetcher, error) {
-	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher, IGalerieFetcher, StarrymartFetcher, MisterPharmaWebFetcher, MedisparFetcher}
+	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher, IGalerieFetcher, StarrymartFetcher, MisterPharmaWebFetcher, MedisparFetcher, DigitEyesFetcher}
 	for _, f := range otherFetchers {
 		fetchers = append(fetchers, f)
 	}
