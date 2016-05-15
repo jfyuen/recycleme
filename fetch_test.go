@@ -153,6 +153,15 @@ func TestDefaultFetchers(t *testing.T) {
 	}
 }
 
+func TestLocalProductDB(t *testing.T) {
+	if localProductDB.IsURLValidForEAN("/", "EAN") {
+		t.Error("/ should be false")
+	}
+	if !localProductDB.IsURLValidForEAN("/local/website_name_test/ean_test", "ean_test") {
+		t.Error("/local/website_name_test/ean_test should be true")
+	}
+}
+
 func TestDefaultFetcher(t *testing.T) {
 	fetcher, _ := NewDefaultFetcher()
 	_, err := fetcher.Fetch("5029053038896", blacklistDB)

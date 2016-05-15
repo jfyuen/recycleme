@@ -523,25 +523,55 @@ func NewMgoLocalProductDB(s *mgo.Session, colPrefix string) *mgoLocalProductDB {
 }
 
 func (db mgoLocalProductDB) Fetch(ean string, blacklist BlacklistDB) (Product, error) {
-	url := db.fullURL(ean)
-	return withCheckInBlacklist(blacklist, ean, url, func() (Product, error) {
-		p := Product{}
-		err := withMgoSession(db.session, func(s *mgo.Session) error {
-			if err := s.DB("").C(db.colName).Find(bson.M{"ean": ean}).One(&p); err != nil {
-				return err
+	var foundProduct Product
+	err := withMgoSession(db.session, func(s *mgo.Session) error {
+		var products []Product
+		if err := s.DB("").C(db.colName).Find(bson.M{"ean": ean}).All(&products); err != nil {
+			return newProductError(ean, "/local/", err)
+		}
+		if len(products) == 0 {
+			return newProductError(ean, "/local/", errNotFound)
+		}
+		var err error
+		for _, p := range products {
+			url := "/local/" + p.WebsiteName + "/" + p.EAN
+			product, err := withCheckInBlacklist(blacklist, ean, url, func() (Product, error) {
+				return p, nil
+			})
+			if err != nil {
+				continue
 			}
+			p.URL = url
+			foundProduct = product
 			return nil
-		})
-		return p, err
+		}
+		return err
 	})
+	return foundProduct, err
 }
 
-func (db mgoLocalProductDB) fullURL(ean string) string {
-	return fmt.Sprintf("http://localhost/ean/%s", ean)
-}
-
-func (db mgoLocalProductDB) IsURLValidForEAN(url, ean string) bool {
-	return db.fullURL(ean) == url
+func (db mgoLocalProductDB) IsURLValidForEAN(myURL, ean string) bool {
+	if !strings.HasPrefix(myURL, "/local/") {
+		return false
+	}
+	isValid := false
+	// Looking for WebsiteName in /local/WebsiteName/EAN
+	websiteName := strings.Replace(strings.Replace(strings.Replace(myURL, "local", "", -1), ean, "", -1), "/", "", -1)
+	err := withMgoSession(db.session, func(s *mgo.Session) error {
+		count, err := s.DB("").C(db.colName).Find(bson.M{"ean": ean, "website_name": websiteName}).Count()
+		if err != nil {
+			return err
+		}
+		fmt.Println(count)
+		if count == 1 {
+			isValid = true
+		}
+		return nil
+	})
+	if err != nil {
+		return false
+	}
+	return isValid
 }
 
 type starrymartParser struct{}
