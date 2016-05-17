@@ -46,8 +46,6 @@
 
 	var BarcodeReader = __webpack_require__(1)
 
-
-
 	BarcodeReader.Init();
 
 	BarcodeReader.DecodeSingleBarcode();
@@ -69,11 +67,11 @@
 	    }
 	});
 
-	/*BarcodeReader.SetErrorCallback(function() {
+	BarcodeReader.SetImageErrorCallback(function() {
 	    App.stopLoading();
 	    $("#recycle_form").addClass("has-error");
 	    $("#help").text("cannot read image");
-	});*/
+	});
 
 	var App = {
 	    init: function(job) {
@@ -383,6 +381,7 @@
 	  ImageCallback: null, // Callback for the decoding of an image.
 	  StreamCallback: null, // Callback for the decoding of a video.
 	  LocalizationCallback: null, // Callback for localization.
+	  ImageErrorCallback: null, // Callback for error on image loading.
 	  Stream: null, // The actual video.
 	  DecodeStreamActive: false, // Will be set to false when StopStreamDecode() is called.
 	  Decoded: [], // Used to enfore the ForceUnique property.
@@ -418,6 +417,11 @@
 	  SetLocalizationCallback: function(callBack) {
 	    BarcodeReader.LocalizationCallback = callBack;
 	    BarcodeReader.Config.LocalizationFeedback = true;
+	  },
+
+	  // Sets the callback function when loading a wrong image.
+	  SetImageErrorCallback: function(callBack) {
+	    BarcodeReader.ImageErrorCallback = callBack;
 	  },
 
 	  // Set to true if LocalizationCallback is set and you would like to
@@ -531,7 +535,8 @@
 
 	  // The image decoding function, image is a data source for an image or an image element.
 	  DecodeImage: function(image) {
-			var img = new Image();
+		var img = new Image();
+		img.onerror = BarcodeReader.ImageErrorCallback;
 
 	    if (image instanceof Image || image instanceof HTMLImageElement) {
 	      image.exifdata = false;

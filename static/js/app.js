@@ -21,11 +21,11 @@ BarcodeReader.SetImageCallback(function(result) {
     }
 });
 
-/*BarcodeReader.SetErrorCallback(function() {
+BarcodeReader.SetImageErrorCallback(function() {
     App.stopLoading();
     $("#recycle_form").addClass("has-error");
     $("#help").text("cannot read image");
-});*/
+});
 
 var App = {
     init: function(job) {
