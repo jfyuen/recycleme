@@ -246,3 +246,26 @@ func TestAddPackageHandler(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusInternalServerError)
 	}
 }
+
+func TestNoCacheHandle(t *testing.T) {
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	handler := NoCacheHandle(HomeHandler{})
+	handler.ServeHTTP(rr, req)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+	expected := map[string]string{
+		"Cache-Control": "no-cache, no-store, must-revalidate",
+		"Pragma":        "no-cache",
+		"Expires":       "0",
+	}
+	for k, v := range expected {
+		if rr.Header().Get(k) != v {
+			t.Errorf("invalid %v, got %v, expected %v", k, rr.Header().Get(k), v)
+		}
+	}
+}

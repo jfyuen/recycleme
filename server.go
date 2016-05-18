@@ -8,6 +8,15 @@ import (
 	"net/http"
 )
 
+func NoCacheHandle(h http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Add("Pragma", "no-cache")
+		w.Header().Add("Expires", "0")
+		h.ServeHTTP(w, r)
+	}
+}
+
 type HomeHandler struct{}
 
 func (h HomeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

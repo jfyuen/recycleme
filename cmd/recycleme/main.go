@@ -36,6 +36,10 @@ func NewMgoDB(url string) (*mgo.Session, error) {
 	return mongoSession, err
 }
 
+func noCacheHandle(path string, h http.Handler) {
+	http.Handle(path, recycleme.NoCacheHandle(h))
+}
+
 func main() {
 	flag.Parse()
 	if (len(flag.Args()) != 1 && !*serverFlag) || (*serverFlag && len(flag.Args()) != 0) {
@@ -72,14 +76,14 @@ func main() {
 			mailHandler = emailConfig.SendMail
 		}
 
-		http.Handle("/materials/", recycleme.MaterialsHandler{DB: packageDB})
-		http.Handle("/package/add", recycleme.AddPackageHandler{DB: packageDB, Logger: logger, Mailer: mailHandler})
-		http.Handle("/blacklist/add", recycleme.AddBlacklistHandler{Blacklist: blacklistDB, Logger: logger, Fetcher: fetcher, Mailer: mailHandler})
-		http.Handle("/throwaway/", recycleme.ThrowAwayHandler{DB: packageDB, BlacklistDB: blacklistDB, Fetcher: fetcher})
-		http.Handle("/", recycleme.HomeHandler{})
+		noCacheHandle("/materials/", recycleme.MaterialsHandler{DB: packageDB})
+		noCacheHandle("/package/add", recycleme.AddPackageHandler{DB: packageDB, Logger: logger, Mailer: mailHandler})
+		noCacheHandle("/blacklist/add", recycleme.AddBlacklistHandler{Blacklist: blacklistDB, Logger: logger, Fetcher: fetcher, Mailer: mailHandler})
+		noCacheHandle("/throwaway/", recycleme.ThrowAwayHandler{DB: packageDB, BlacklistDB: blacklistDB, Fetcher: fetcher})
+		noCacheHandle("/", recycleme.HomeHandler{})
 
 		fs := http.FileServer(http.Dir("static"))
-		http.Handle("/static/", http.StripPrefix("/static/", fs))
+		noCacheHandle("/static/", http.StripPrefix("/static/", fs))
 
 		logger.Println("Running in server mode on port " + *serverPort)
 		err = http.ListenAndServe(":"+*serverPort, nil)
