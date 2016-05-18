@@ -78,7 +78,7 @@ func TestDefaultFetchers(t *testing.T) {
 	} else if p.Name != "Four à Pierre Royale" || p.EAN != "7613034383808" ||
 		p.URL != "http://fr.openfoodfacts.org/api/v0/produit/7613034383808.json" ||
 		p.WebsiteURL != "http://fr.openfoodfacts.org/produit/7613034383808/" ||
-		p.ImageURL != "http://static.openfoodfacts.org/images/products/761/303/438/3808/front.8.400.jpg" {
+		p.ImageURL != "http://static.openfoodfacts.org/images/products/761/303/438/3808/front_fr.8.400.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 
