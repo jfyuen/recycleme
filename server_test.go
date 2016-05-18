@@ -71,10 +71,12 @@ func TestAddBlacklistHandler(t *testing.T) {
 	}
 
 	m := newMailTester(fmt.Sprintf(ean+" blacklisted"), fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger := log.New(ioutil.Discard, "", 0)
-		AddBlacklistHandler(blacklistDB, w, r, logger, nopFetcher, m.sendMail)
-	})
+	handler := AddBlacklistHandler{
+		Logger:    log.New(ioutil.Discard, "", 0),
+		Blacklist: blacklistDB,
+		Fetcher:   nopFetcher,
+		Mailer:    m.sendMail,
+	}
 
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -120,9 +122,11 @@ func TestThrowAwayHandler(t *testing.T) {
 	}
 
 	nopFetcher := testFetcher{URL: "http://www.example.com/%s/", WebsiteName: "Example.com"}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ThrowAwayHandler(packageDB, blacklistDB, w, r, nopFetcher)
-	})
+	handler := ThrowAwayHandler{
+		DB:          packageDB,
+		BlacklistDB: blacklistDB,
+		Fetcher:     nopFetcher,
+	}
 
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -144,9 +148,9 @@ func TestMaterialsHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		MaterialsHandler(w, r, packageDB)
-	})
+	handler := MaterialsHandler{
+		DB: packageDB,
+	}
 	handler.ServeHTTP(rr, req)
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -187,10 +191,11 @@ func TestAddPackageHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := newMailTester("Adding package for "+ean, fmt.Sprintf("Materials added to %v:\n%v", ean, "[{1 Boîte carton} {2 Film plastique}]"))
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger := log.New(ioutil.Discard, "", 0)
-		AddPackageHandler(packageDB, w, r, logger, m.sendMail)
-	})
+	handler := AddPackageHandler{
+		Logger: log.New(ioutil.Discard, "", 0),
+		DB:     packageDB,
+		Mailer: m.sendMail,
+	}
 
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)

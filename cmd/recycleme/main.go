@@ -71,19 +71,12 @@ func main() {
 		} else {
 			mailHandler = emailConfig.SendMail
 		}
-		http.HandleFunc("/materials/", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.MaterialsHandler(w, r, packageDB)
-		})
-		http.HandleFunc("/package/add", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.AddPackageHandler(packageDB, w, r, logger, mailHandler)
-		})
-		http.HandleFunc("/blacklist/add", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.AddBlacklistHandler(blacklistDB, w, r, logger, fetcher, mailHandler)
-		})
-		http.HandleFunc("/throwaway/", func(w http.ResponseWriter, r *http.Request) {
-			recycleme.ThrowAwayHandler(packageDB, blacklistDB, w, r, fetcher)
-		})
-		http.HandleFunc("/", recycleme.HomeHandler)
+
+		http.Handle("/materials/", recycleme.MaterialsHandler{DB: packageDB})
+		http.Handle("/package/add", recycleme.AddPackageHandler{DB: packageDB, Logger: logger, Mailer: mailHandler})
+		http.Handle("/blacklist/add", recycleme.AddBlacklistHandler{Blacklist: blacklistDB, Logger: logger, Fetcher: fetcher, Mailer: mailHandler})
+		http.Handle("/throwaway/", recycleme.ThrowAwayHandler{DB: packageDB, BlacklistDB: blacklistDB, Fetcher: fetcher})
+		http.Handle("/", recycleme.HomeHandler{})
 
 		fs := http.FileServer(http.Dir("static"))
 		http.Handle("/static/", http.StripPrefix("/static/", fs))

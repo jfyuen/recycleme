@@ -8,7 +8,9 @@ import (
 	"net/http"
 )
 
-func HomeHandler(w http.ResponseWriter, r *http.Request) {
+type HomeHandler struct{}
+
+func (h HomeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		http.ServeFile(w, r, "static/index.html")
 	} else {
@@ -16,8 +18,13 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func MaterialsHandler(w http.ResponseWriter, r *http.Request, db MaterialDB) {
-	materials, err := db.GetAll()
+type MaterialsHandler struct {
+	DB MaterialDB
+}
+
+func (m MaterialsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	materials, err := m.DB.GetAll()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -30,7 +37,14 @@ func MaterialsHandler(w http.ResponseWriter, r *http.Request, db MaterialDB) {
 	fmt.Fprintf(w, "%s", out)
 }
 
-func AddBlacklistHandler(b BlacklistDB, w http.ResponseWriter, r *http.Request, logger *log.Logger, f Fetcher, m Mailer) {
+type AddBlacklistHandler struct {
+	Logger    *log.Logger
+	Fetcher   Fetcher
+	Mailer    Mailer
+	Blacklist BlacklistDB
+}
+
+func (h AddBlacklistHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	url := r.FormValue("url")
 	ean := r.FormValue("ean")
@@ -40,25 +54,31 @@ func AddBlacklistHandler(b BlacklistDB, w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	if !f.IsURLValidForEAN(url, ean) {
+	if !h.Fetcher.IsURLValidForEAN(url, ean) {
 		msg := fmt.Sprintf("url %v invalid for ean %v", url, ean)
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 
-	b.Add(url)
+	h.Blacklist.Add(url)
 	name := r.FormValue("name")
-	logger.Println(fmt.Sprintf("Blacklisting %s. %s should be %s", url, ean, name))
+	h.Logger.Println(fmt.Sprintf("Blacklisting %s. %s should be %s", url, ean, name))
 	fmt.Fprintf(w, "added")
 	go func() {
-		err := m(ean+" blacklisted", fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
+		err := h.Mailer(ean+" blacklisted", fmt.Sprintf("Blacklisting %s.\n%s should be %s", url, ean, name))
 		if err != nil {
-			logger.Println(err)
+			h.Logger.Println(err)
 		}
 	}()
 }
 
-func AddPackageHandler(db PackagesDB, w http.ResponseWriter, r *http.Request, logger *log.Logger, m Mailer) {
+type AddPackageHandler struct {
+	DB     PackagesDB
+	Logger *log.Logger
+	Mailer Mailer
+}
+
+func (h AddPackageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	materialsStr := r.FormValue("materials")
 	ean := r.FormValue("ean")
@@ -81,31 +101,37 @@ func AddPackageHandler(db PackagesDB, w http.ResponseWriter, r *http.Request, lo
 		return
 	}
 
-	db.Set(ean, materials)
-	logger.Println(fmt.Sprintf("Adding %v for %v", materials, ean))
+	h.DB.Set(ean, materials)
+	h.Logger.Println(fmt.Sprintf("Adding %v for %v", materials, ean))
 	fmt.Fprintf(w, "added")
 	go func() {
-		err := m("Adding package for "+ean, fmt.Sprintf("Materials added to %v:\n%v", ean, materials))
+		err := h.Mailer("Adding package for "+ean, fmt.Sprintf("Materials added to %v:\n%v", ean, materials))
 		if err != nil {
-			logger.Println(err)
+			h.Logger.Println(err)
 		}
 	}()
 }
 
-func ThrowAwayHandler(db PackagesDB, blacklistDB BlacklistDB, w http.ResponseWriter, r *http.Request, f Fetcher) {
+type ThrowAwayHandler struct {
+	DB          PackagesDB
+	BlacklistDB BlacklistDB
+	Fetcher     Fetcher
+}
+
+func (h ThrowAwayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ean := r.URL.Path[len("/throwaway/"):]
-	product, err := f.Fetch(ean, blacklistDB)
+	product, err := h.Fetcher.Fetch(ean, h.BlacklistDB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	pkg, err := NewProductPackage(product, db)
+	pkg, err := NewProductPackage(product, h.DB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	jsonBytes, err := pkg.ThrowAwayJSON(db)
+	jsonBytes, err := pkg.ThrowAwayJSON(h.DB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
