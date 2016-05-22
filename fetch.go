@@ -439,7 +439,7 @@ func newAmazonURLFetcher() (amazonURL, error) {
 }
 
 func (f amazonURL) IsURLValidForEAN(url, ean string) bool {
-	return f.endPoint == url
+	return f.endPoint+"/"+ean == url
 }
 
 func (f amazonURL) buildURL(ean string) (string, error) {
@@ -474,7 +474,7 @@ func (f amazonURL) Fetch(ean string, db BlacklistDB) (Product, error) {
 	if err != nil {
 		return Product{}, newProductError(ean, endPoint, err)
 	}
-	p, err := withCheckInBlacklist(db, ean, url, func() (Product, error) {
+	p, err := withCheckInBlacklist(db, ean, endPoint, func() (Product, error) {
 		body, err := fetchURL(url)
 		if err != nil {
 			return Product{}, err
