@@ -151,6 +151,16 @@ func TestDefaultFetchers(t *testing.T) {
 		p.ImageURL != "https://www.digit-eyes.com/thumbs/233/033/3350033006737.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
+
+	p, err = PicardFetcher.Fetch("3270160891382", blacklistDB)
+	if err != nil {
+		t.Error(err)
+	} else if p.Name != "2 quiches lorraines" || p.EAN != "3270160891382" ||
+		p.URL != "http://www.picard.fr/recherche?q=3270160891382" ||
+		p.WebsiteURL != "http://www.picard.fr/produits/2-quiches-lorraines-000000000000089138.html" ||
+		p.ImageURL != "http://demandware.edgesuite.net/sits_pod39/dw/image/v2/AAHV_PRD/on/demandware.static/-/Sites-catalog-picard/default/dwe4154de5/produits/entrees-tartes-salades/pack/000000000000089138_P.png?sw=140&sh=82" {
+		t.Errorf("Some attributes are invalid for: %v", p)
+	}
 }
 
 func TestLocalProductDB(t *testing.T) {

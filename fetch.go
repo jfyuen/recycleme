@@ -68,6 +68,9 @@ var MedisparFetcher, _ = NewFetchableURL("http://www.meddispar.fr/content/search
 // DigitEyesFetcher for digit-eyes.com
 var DigitEyesFetcher, _ = NewFetchableURL("http://www.digit-eyes.com/upcCode/%s.html", "Digit-Eyes", digitEyesParser{})
 
+// PicardFetcher for picard.fr
+var PicardFetcher, _ = NewFetchableURL("http://www.picard.fr/recherche?q=%s", "Picard", picardParser{baseURL: "http://www.picard.fr"})
+
 type BlacklistDB interface {
 	Contains(url string) (bool, error)
 	Add(url string) error
@@ -212,7 +215,6 @@ func (f iGalerieParser) ParseBody(b []byte) (Product, error) {
 	}
 	var fn func(*html.Node)
 	fn = func(n *html.Node) {
-		// printText = printText || (n.Type == html.ElementNode && n.Data == "b")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			if c.Type == html.ElementNode {
 				switch c.Data {
@@ -274,7 +276,6 @@ func (f upcItemDbParser) ParseBody(b []byte) (Product, error) {
 	}
 	var fn func(*html.Node)
 	fn = func(n *html.Node) {
-		// printText = printText || (n.Type == html.ElementNode && n.Data == "b")
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			// Looking for <p class="detailtitle">....<b>$PRODUCT_NAME</b></p>
 			if c.Type == html.ElementNode {
@@ -316,6 +317,7 @@ func (f upcItemDbParser) ParseBody(b []byte) (Product, error) {
 }
 
 type openFoodFactsParser struct{}
+
 type openFoodFactsJSON struct {
 	EAN     string `json:"code"`
 	Product struct {
@@ -762,6 +764,59 @@ func (f digitEyesParser) ParseBody(b []byte) (Product, error) {
 	return p, nil
 }
 
+type picardParser struct {
+	baseURL string
+}
+
+func (f picardParser) ParseBody(b []byte) (Product, error) {
+	doc, err := html.Parse(bytes.NewReader(b))
+	p := Product{}
+	if err != nil {
+		return p, err
+	}
+	var fn func(*html.Node)
+	fn = func(n *html.Node) {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			if c.Type == html.ElementNode {
+				if c.Data == "a" {
+					product := false
+					for _, v := range c.Attr {
+						if v.Key == "class" && v.Val == "productGTMSearchImg" {
+							product = true
+						}
+						if product {
+							if v.Key == "href" {
+								p.WebsiteURL = f.baseURL + v.Val
+							} else if v.Key == "title" {
+								p.Name = v.Val
+							}
+						}
+					}
+				} else if c.Data == "img" && p.Name != "" {
+					url := ""
+					for _, v := range c.Attr {
+						if v.Key == "src" {
+							url = v.Val
+						}
+						if v.Key == "alt" && v.Val == p.Name {
+							p.ImageURL = url
+							return
+						}
+					}
+				}
+				if p.Name == "" || p.ImageURL == "" {
+					fn(c)
+				}
+			}
+		}
+	}
+	fn(doc)
+	if p.Name == "" {
+		return p, errNotFound
+	}
+	return p, nil
+}
+
 type DefaultFetcher struct {
 	fetchers []Fetcher
 }
@@ -780,7 +835,17 @@ type DefaultFetcher struct {
 // - more fetchers are provided as arguments (local database, ...)
 // TODO: should return a warning, or info, not an error.
 func NewDefaultFetcher(otherFetchers ...Fetcher) (DefaultFetcher, error) {
-	fetchers := []Fetcher{UpcItemDbFetcher, OpenFoodFactsFetcher, IsbnSearchFetcher, IGalerieFetcher, StarrymartFetcher, MisterPharmaWebFetcher, MedisparFetcher, DigitEyesFetcher}
+	fetchers := []Fetcher{
+		UpcItemDbFetcher,
+		OpenFoodFactsFetcher,
+		IsbnSearchFetcher,
+		IGalerieFetcher,
+		StarrymartFetcher,
+		MisterPharmaWebFetcher,
+		MedisparFetcher,
+		DigitEyesFetcher,
+		PicardFetcher,
+	}
 	for _, f := range otherFetchers {
 		fetchers = append(fetchers, f)
 	}
