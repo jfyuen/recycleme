@@ -82,16 +82,6 @@ func TestDefaultFetchers(t *testing.T) {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 
-	p, err = IsbnSearchFetcher.Fetch("9782501104265", blacklistDB)
-	if err != nil {
-		t.Error(err)
-	} else if p.Name != "le rugby c'est pas sorcier" || p.EAN != "9782501104265" ||
-		p.URL != "http://www.isbnsearch.org/isbn/9782501104265" ||
-		p.WebsiteURL != "http://www.isbnsearch.org/isbn/9782501104265" ||
-		p.ImageURL != "http://ecx.images-amazon.com/images/I/51V4iimUfML._SL194_.jpg" {
-		t.Errorf("Some attributes are invalid for: %v", p)
-	}
-
 	p, err = IGalerieFetcher.Fetch("8714789941011", blacklistDB)
 	if err != nil {
 		t.Error(err)
@@ -139,16 +129,6 @@ func TestDefaultFetchers(t *testing.T) {
 		p.URL != "http://www.meddispar.fr/content/search?search_by_name=&search_by_cip=3400936864986" ||
 		p.WebsiteURL != "http://www.meddispar.fr/Medicaments/NUROFEN-400-B-12/(type)/cip/(value)/3400936864986" ||
 		p.ImageURL != "" {
-		t.Errorf("Some attributes are invalid for: %v", p)
-	}
-
-	p, err = DigitEyesFetcher.Fetch("3350033006737", blacklistDB)
-	if err != nil {
-		t.Error(err)
-	} else if p.Name != "Atomiseur D'eau Minerale" || p.EAN != "3350033006737" ||
-		p.URL != "http://www.digit-eyes.com/upcCode/3350033006737.html" ||
-		p.WebsiteURL != "http://www.digit-eyes.com/upcCode/3350033006737.html" ||
-		p.ImageURL != "https://www.digit-eyes.com/thumbs/233/033/3350033006737.jpg" {
 		t.Errorf("Some attributes are invalid for: %v", p)
 	}
 

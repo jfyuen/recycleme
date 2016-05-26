@@ -50,9 +50,6 @@ var UpcItemDbFetcher, _ = NewFetchableURL("http://www.upcitemdb.com/upc/%s", "UP
 // OpenFoodFactsFetcher for openfoodfacts.org (using json api)
 var OpenFoodFactsFetcher, _ = NewFetchableURL("http://fr.openfoodfacts.org/api/v0/produit/%s.json", "OpenFoodFacts", openFoodFactsParser{})
 
-// IsbnSearchFetcher for isbnsearch.org (using json api)
-var IsbnSearchFetcher, _ = NewFetchableURL("http://www.isbnsearch.org/isbn/%s", "ISBNSearch", isbnSearchParser{})
-
 // IGalerieFetcher for some unknown website: http://90.80.54.225/?img=161277&images=1859
 var IGalerieFetcher, _ = NewFetchableURL("http://90.80.54.225/?search=%s", "90.80.54.225", iGalerieParser{baseURL: "http://90.80.54.225/"})
 
@@ -64,9 +61,6 @@ var MisterPharmaWebFetcher, _ = NewFetchableURL("http://www.misterpharmaweb.com/
 
 // MedisparFetcher for meddispar.fr
 var MedisparFetcher, _ = NewFetchableURL("http://www.meddispar.fr/content/search?search_by_name=&search_by_cip=%s", "Medispar", medisparParser{baseURL: "http://www.meddispar.fr"})
-
-// DigitEyesFetcher for digit-eyes.com
-var DigitEyesFetcher, _ = NewFetchableURL("http://www.digit-eyes.com/upcCode/%s.html", "Digit-Eyes", digitEyesParser{})
 
 // PicardFetcher for picard.fr
 var PicardFetcher, _ = NewFetchableURL("http://www.picard.fr/recherche?q=%s", "Picard", picardParser{baseURL: "http://www.picard.fr"})
@@ -340,56 +334,6 @@ func (f openFoodFactsParser) ParseBody(body []byte) (Product, error) {
 	p.Name = v.Product.Name
 	p.ImageURL = v.Product.ImageURL
 	p.WebsiteURL = fmt.Sprintf("http://fr.openfoodfacts.org/produit/%s/", v.EAN)
-	return p, nil
-}
-
-type isbnSearchParser struct{}
-
-func (f isbnSearchParser) ParseBody(b []byte) (Product, error) {
-	doc, err := html.Parse(bytes.NewReader(b))
-	p := Product{}
-	if err != nil {
-		return p, err
-	}
-	var fn func(*html.Node)
-	fn = func(n *html.Node) {
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			// Looking for <div class="bookinfo"><h2>$PRODUCT_NAME</h2></div>
-			if c.Type == html.ElementNode {
-				switch c.Data {
-				case "div":
-					if p.Name != "" {
-						return
-					}
-					if len(c.Attr) == 1 {
-						classAttr := c.Attr[0]
-						if classAttr.Val == "bookinfo" {
-							txt := c.FirstChild.NextSibling.FirstChild
-							if txt.Type == html.TextNode {
-								p.Name = txt.Data
-								return
-							}
-						}
-					}
-				case "img":
-					if p.ImageURL != "" {
-						return
-					}
-					for _, attr := range c.Attr {
-						if attr.Key == "src" {
-							p.ImageURL = attr.Val
-							return
-						}
-					}
-				}
-				fn(c)
-			}
-		}
-	}
-	fn(doc)
-	if p.Name == "" {
-		return p, errNotFound
-	}
 	return p, nil
 }
 
@@ -727,43 +671,6 @@ func (f medisparParser) ParseBody(b []byte) (Product, error) {
 	return p, nil
 }
 
-type digitEyesParser struct{}
-
-func (f digitEyesParser) ParseBody(b []byte) (Product, error) {
-	charsetReader := charmap.ISO8859_1.NewDecoder().Reader(bytes.NewReader(b))
-	doc, err := html.Parse(charsetReader) // charset is ISO-8859-1
-	p := Product{}
-	if err != nil {
-		return p, err
-	}
-	var fn func(*html.Node)
-	fn = func(n *html.Node) {
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			if c.Type == html.ElementNode {
-				if c.Data == "img" {
-					imageURL := ""
-					for _, attr := range c.Attr {
-						if attr.Key == "src" {
-							imageURL = attr.Val
-						}
-						if attr.Key == "alt" && strings.Contains(attr.Val, "image of ") {
-							p.Name = strings.Replace(attr.Val, "image of ", "", -1)
-							p.ImageURL = imageURL
-							return
-						}
-					}
-				}
-				fn(c)
-			}
-		}
-	}
-	fn(doc)
-	if p.Name == "" {
-		return p, errNotFound
-	}
-	return p, nil
-}
-
 type picardParser struct {
 	baseURL string
 }
@@ -825,25 +732,21 @@ type DefaultFetcher struct {
 // Currently supported websites:
 // - upcitemdb
 // - openfoodfacts
-// - isbnsearch
 // - iGalerie (some random IP on internet)
 // - amazon (if credentials are provided)
 // - StarryMart
 // - MisterPharmaWeb
 // - Meddispar
-// - Digit-Eyes
 // - more fetchers are provided as arguments (local database, ...)
 // TODO: should return a warning, or info, not an error.
 func NewDefaultFetcher(otherFetchers ...Fetcher) (DefaultFetcher, error) {
 	fetchers := []Fetcher{
 		UpcItemDbFetcher,
 		OpenFoodFactsFetcher,
-		IsbnSearchFetcher,
 		IGalerieFetcher,
 		StarrymartFetcher,
 		MisterPharmaWebFetcher,
 		MedisparFetcher,
-		DigitEyesFetcher,
 		PicardFetcher,
 	}
 	for _, f := range otherFetchers {
