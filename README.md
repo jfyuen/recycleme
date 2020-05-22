@@ -48,6 +48,16 @@ The following environment variables are necessary to receive mails from the app:
 
 On mobile phones, photo can be used to scan bar codes.
 
+## Build
+### Frontend
+
+Go to `frontend/` and run `npm install && npx webpack`.
+A `bundle.js` will be created in `static/js/bundle.js`.
+
+### Backend
+
+Go to `cmd/recycleme` and run `go build` to create the `recycleme` binary.
+
 ## Heroku deployment
 
 The app itself is "heroku" ready. Just deploy it directly after setting up the database environment variable:
@@ -59,7 +69,7 @@ $ heroku open
 ```
 Mongolab service may be used for the database.
 
- 
+
 ## Run in server mode
 
 ```bash
