@@ -5,8 +5,8 @@ go 1.14
 require (
 	github.com/nicholassm/go-ean v0.0.0-20160503113020-c3635ff48801
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	golang.org/x/net v0.0.0-20150629084131-d9558e5c97f8
-	golang.org/x/text v0.0.0-20160510111431-f773ec03ce33
+	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
+	golang.org/x/text v0.3.8
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/mgo.v2 v2.0.0-20160316054952-b6e2fa371e64
 	gopkg.in/yaml.v2 v2.3.0 // indirect
